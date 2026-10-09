@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Agon Postgres backup (MZY-209) for a macOS dev machine: launchd runs
+  `pnpm db:backup` daily at 03:30. The Linux-tower equivalent is
+  deploy/agon-backup.{service,timer}.
+
+  Install (replace /PATH/TO/agon with the checkout path first):
+    cp deploy/com.agon.backup.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.agon.backup.plist
+    launchctl kickstart gui/$(id -u)/com.agon.backup    # run once, now
+    tail /PATH/TO/agon/backups/backup.log
+
+  launchd runs a missed StartCalendarInterval job at next wake, so a Mac
+  asleep at 03:30 still gets its backup when it's opened. Docker Desktop
+  must be running, or the job fails (and alerts via Telegram).
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agon.backup</string>
+  <key>WorkingDirectory</key>
+  <string>/PATH/TO/agon</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/pnpm</string>
+    <string>db:backup</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/PATH/TO/agon/backups/backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>/PATH/TO/agon/backups/backup.log</string>
+</dict>
+</plist>

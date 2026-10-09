@@ -1,0 +1,5 @@
+metric,label,value,unit,captured_on,source_url,note
+fitness_ctl,Fitness (CTL analog),40,relative_effort_units,2026-01-15,https://www.strava.com/athlete/fitness,Illustrative value — replace with your own capture from the Fitness & Freshness page.
+fatigue_atl,Fatigue (ATL analog),55,relative_effort_units,2026-01-15,https://www.strava.com/athlete/fitness,Illustrative value — acute load.
+form_tsb,Form (TSB analog),-15,relative_effort_units,2026-01-15,https://www.strava.com/athlete/fitness,Illustrative value — Form = Fitness - Fatigue (40 - 55).
+fitness_peak_6mo,Fitness peak (last 6 months),50,relative_effort_units,2026-01-15,https://www.strava.com/athlete/fitness,Illustrative value — peak of the 6-month chart.

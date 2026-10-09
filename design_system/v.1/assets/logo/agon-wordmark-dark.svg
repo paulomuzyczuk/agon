@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="64" viewBox="0 0 220 64">
+<text x="0" y="48" font-family="Caprasimo, Georgia, serif" font-size="54" letter-spacing="-1.5" fill="#f3e8d6">Ag</text>
+<g transform="translate(96 14) scale(0.58)">
+<circle cx="32" cy="32" r="24" fill="none" stroke="#2a251e" stroke-width="10"></circle>
+<circle cx="32" cy="32" r="24" fill="none" stroke="#f6a06b" stroke-width="10" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="36" transform="rotate(-90 32 32)"></circle>
+</g>
+<text x="136" y="48" font-family="Caprasimo, Georgia, serif" font-size="54" letter-spacing="-1.5" fill="#f3e8d6">n</text>
+</svg>

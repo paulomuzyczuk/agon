@@ -1,0 +1,310 @@
+version: 2
+
+models:
+  - name: fct_run_best_efforts
+    description: >
+      Per-distance running PRs (fastest split at each named distance),
+      derived source-agnostically from the athlete's own runs/run_streams
+      (lib/bestEfforts.ts, `pnpm be:backfill`) — repointed 2026-09-05 off the
+      frozen one-time Strava-premium pull. One row per named distance. The
+      live race-prediction fit (services/racePrediction.ts) reads
+      public.run_best_efforts directly, not this mart — see that module.
+    columns:
+      - name: effort_name
+        description: >
+          Distance label: a fixed bucket (1K, 5K, 10K, Half_Marathon, …) or the
+          special 'full_run' (fastest whole-run effort ever, any distance).
+        tests:
+          - not_null
+          - unique
+      - name: distance_m
+        description: Effort distance in metres.
+        tests: [not_null]
+      - name: elapsed_time_s
+        description: PR split time (seconds) — what the record ranks on.
+        tests: [not_null]
+      - name: pace_s_per_km
+        description: Elapsed pace at this distance (seconds per km).
+      - name: method
+        description: How the effort was derived — 'stream' (sliding-window search over a GPS/distance stream) or 'whole_run' (the run's own distance/duration, no stream available).
+        tests:
+          - accepted_values:
+              values: [stream, whole_run]
+      - name: stream_source
+        description: run_streams.source used for a 'stream' effort (null for 'whole_run').
+      - name: pr_run_id
+        description: The run the PR was set in.
+        tests: [not_null]
+      - name: achieved_at
+        description: Date of the run the PR was set in.
+
+  - name: fct_race_predictions
+    description: >
+      Predicted race times for 1k/5k/10k/half/marathon (+ a 70k extrapolation).
+      Net-new premium-parity feature (Strava has no equivalent). Headline is a
+      Riegel power law with the exponent recalibrated from the athlete's own
+      best efforts; Daniels VDOT + generic-k Riegel reported as cross-checks.
+      One row per target distance. See lib/racePrediction.ts.
+    columns:
+      - name: label
+        description: Target distance label (1K, 5K, 10K, Half-Marathon, Marathon, 70K).
+        tests:
+          - not_null
+          - unique
+      - name: distance_m
+        description: Target distance in metres.
+        tests: [not_null]
+      - name: predicted_s
+        description: Headline predicted time (s) — self-calibrated Riegel.
+        tests: [not_null]
+      - name: predicted_pace_s_per_km
+        description: Predicted pace (s per km) for the headline time.
+      - name: extrapolated
+        description: True when the target is longer than every best effort (wider band).
+        tests:
+          - accepted_values:
+              values: [true, false]
+
+  - name: fct_training_load_daily
+    description: >
+      Daily Banister training load — Agon's reimplementation of Strava's paywalled
+      Fitness & Freshness / the TrainingPeaks PMC. One row per calendar day over a
+      continuous spine (rest days = 0). CTL=Fitness (42d), ATL=Fatigue (7d),
+      TSB=Form (CTL−ATL). Validated for sign/shape (not magnitude) against
+      analytics.strava_web_reference. See docs/strava-benchmark.md.
+    columns:
+      - name: date
+        description: Calendar day (athlete-local).
+        tests:
+          - not_null
+          - unique
+      - name: daily_load
+        description: Σ per-run Relative Effort that day (0 on rest days).
+        tests: [not_null]
+      - name: ctl
+        description: Fitness — 42-day EWMA of daily load.
+        tests: [not_null]
+      - name: atl
+        description: Fatigue — 7-day EWMA of daily load.
+        tests: [not_null]
+      - name: tsb
+        description: Form — CTL − ATL (prev-day). Negative = fatigued/building.
+        tests: [not_null]
+      - name: form_zone
+        description: TrainingPeaks Form band (coaching gloss on TSB).
+        tests:
+          - accepted_values:
+              values:
+                [
+                  'high fatigue',
+                  'optimal training',
+                  'grey zone',
+                  'fresh',
+                  'transition',
+                ]
+
+  - name: fct_wellness_daily
+    description: >
+      Daily wellness / recovery — resting HR, HRV (RMSSD), sleep (duration,
+      efficiency, stage split) and active minutes on one row per calendar day over
+      a continuous spine. LEFT JOIN of daily_activity + hrv_daily + sleep_sessions
+      so the sparse, non-overlapping signals share a date axis and can be read
+      against training load. Missing metrics are NULL (rendered as gaps, never 0).
+    columns:
+      - name: date
+        description: Calendar day (athlete-local).
+        tests:
+          - not_null
+          - unique
+      - name: resting_hr
+        description: Resting heart rate (bpm); null on days with no reading.
+      - name: active_minutes
+        description: All-day active minutes; null on days with no reading.
+      - name: daily_rmssd
+        description: HRV — whole-night RMSSD (ms); null on days with no reading.
+      - name: deep_rmssd
+        description: HRV — deep-sleep RMSSD (ms).
+      - name: minutes_asleep
+        description: Total minutes asleep, summed over the day's sleep sessions.
+      - name: sleep_efficiency
+        description: Asleep ÷ in-bed, derived from summed minutes (%).
+
+  - name: fct_relative_effort
+    description: >
+      Per-activity Relative Effort (Banister TRIMP) — Agon's reimplementation of
+      Strava's paywalled Relative Effort. One row per scored run. Daily SUM feeds
+      the future fct_training_load_daily (CTL/ATL/TSB). See docs/strava-benchmark.md.
+    columns:
+      - name: run_id
+        description: The run this score is for.
+        tests:
+          - not_null
+          - unique
+      - name: relative_effort
+        description: TRIMP score (higher = harder + longer).
+        tests: [not_null]
+      - name: relative_effort_per_hour
+        description: RE per hour — intensity density, independent of duration.
+      - name: method
+        description: >-
+          Fidelity of the score's HR input: ''stream'' (HR series integrated),
+          ''average'' (avg-HR fallback), or ''estimated_pace'' (last resort — HR
+          estimated from pace via the athlete''s pace→HR fit for runs with no HR).
+        tests:
+          - accepted_values:
+              values: ['stream', 'average', 'estimated_pace']
+
+  - name: fct_run_compliance_weekly
+    description: >
+      Weekly run compliance vs. the training program: actual km logged vs. the
+      week's planned target km, plus easy-run HR-zone adherence vs.
+      target_hr_cap (avg_hr vs. cap — a simple version; a stream-level
+      time-in-zone read is a follow-up). One row per (block, week).
+    columns:
+      - name: block_week
+        description: Surrogate key, e.g. 'B1W03'.
+        tests:
+          - not_null
+          - unique
+      - name: block
+        description: Training program block (1-3).
+      - name: week
+        description: Training program week number.
+      - name: actual_km
+        description: Sum of logged run distance that week.
+      - name: target_km
+        description: Sum of planned run target_distance_km that week.
+      - name: km_compliance_pct
+        description: actual_km ÷ target_km × 100.
+      - name: easy_runs_capped
+        description: >
+          Runs that week matched (by date) to a planned run session with a
+          target_hr_cap set — i.e. days the program actually capped HR.
+      - name: easy_runs_compliant
+        description: Of those, runs whose avg_hr stayed at or under the cap.
+      - name: hr_compliance_pct
+        description: easy_runs_compliant ÷ easy_runs_capped × 100.
+
+  - name: fct_body_comp_trend
+    description: >
+      Body composition over time — weight (kg) and body-fat % from /weight and
+      /bf Telegram logs. One row per calendar day over a continuous spine (same
+      shape as fct_wellness_daily): weigh-ins are sparse and irregular, so the
+      spine keeps the x axis time-proportional. Missing days are NULL — render
+      as gaps, never zero.
+    columns:
+      - name: date
+        description: Calendar day (athlete-local).
+        tests:
+          - not_null
+          - unique
+      - name: weight_kg
+        description: Logged bodyweight (kg); null on days with no weigh-in.
+      - name: body_fat_pct
+        description: Logged body-fat percentage; null on days with no reading.
+
+  - name: fct_run_fueling
+    description: >
+      Per-run fueling & hydration balance (Premium-Parity #5, MZY-64) — estimated
+      sweat/sodium loss from duration × HR intensity × heat vs. logged intake,
+      carbs/h vs. the duration-based guideline, and the >2% dehydration +
+      under-fueling flags. Computed by lib/fuelingModel.ts (`pnpm
+      fueling:backfill`); this mart only joins run dims. One row per modelled run.
+    columns:
+      - name: run_id
+        tests: [not_null, unique]
+      - name: est_sweat_loss_l
+        description: Estimated sweat loss (L ≈ kg body mass).
+        tests: [not_null]
+      - name: intensity_method
+        description: "'hr' (avg HR → %HRR intensity factor) or 'assumed' (no HR; baseline intensity)."
+        tests:
+          - accepted_values:
+              values: ['hr', 'assumed']
+      - name: body_mass_loss_pct
+        description: Net fluid deficit as % body mass; null when intake wasn't logged.
+      - name: dehydrated
+        description: body_mass_loss_pct > 2; null when intake wasn't logged.
+      - name: under_fueled
+        description: carbs_per_h below carbs_target_min_g_per_h; null when intake wasn't logged.
+
+  - name: fct_ride_fueling
+    description: >
+      Per-ride fueling & hydration balance (Premium-Parity #5, MZY-64) — estimated
+      sweat/sodium loss from duration × HR intensity × heat vs. logged intake,
+      carbs/h vs. the duration-based guideline, and the >2% dehydration +
+      under-fueling flags. Computed by lib/fuelingModel.ts (`pnpm
+      fueling:backfill`); this mart only joins ride dims. One row per modelled ride.
+    columns:
+      - name: ride_id
+        tests: [not_null, unique]
+      - name: est_sweat_loss_l
+        description: Estimated sweat loss (L ≈ kg body mass).
+        tests: [not_null]
+      - name: intensity_method
+        description: "'hr' (avg HR → %HRR intensity factor) or 'assumed' (no HR; baseline intensity)."
+        tests:
+          - accepted_values:
+              values: ['hr', 'assumed']
+      - name: body_mass_loss_pct
+        description: Net fluid deficit as % body mass; null when intake wasn't logged.
+      - name: dehydrated
+        description: body_mass_loss_pct > 2; null when intake wasn't logged.
+      - name: under_fueled
+        description: carbs_per_h below carbs_target_min_g_per_h; null when intake wasn't logged.
+
+  - name: fct_ride_power
+    description: >
+      Per-ride power summary with provenance (MZY-267). One row per ride with
+      any power. Only power_source = 'device' rows are measurements; 'estimated'
+      is the source's model (Strava, no power meter) and 'manual' is hand-logged.
+      Agon-computed NP/IF/TSS (MZY-269) come from measured streams only, so
+      they are null unless is_measured. Power never feeds training load — that
+      stays Relative Effort.
+    columns:
+      - name: ride_id
+        tests: [not_null, unique]
+      - name: power_source
+        description: "'device' (power meter), 'estimated' (source model) or 'manual' (hand-logged)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['device', 'estimated', 'manual']
+      - name: is_measured
+        description: True only for power_source = 'device'. Filter on it before treating watts as data.
+        tests: [not_null]
+      - name: avg_power_w
+        description: Average power (W) as the source reported it.
+      - name: weighted_avg_power_w
+        description: The source's NP-like figure (Strava weighted_average_watts; meter rides only). Not Agon's NP.
+      - name: kilojoules
+        description: Mechanical work (kJ) as the source reported it.
+      - name: np_w
+        description: Agon's Normalized Power (W), from a power meter's measured stream only (MZY-269).
+      - name: intensity_factor
+        description: NP / FTP. Null without a measured stream or without an FTP (ftp_w).
+      - name: tss
+        description: Training Stress Score (1 h at FTP = 100). Per-ride only — never part of training load.
+      - name: ftp_w
+        description: FTP (W) in force on the ride date that IF/TSS were computed with (athlete profile ftpHistory).
+
+  - name: fct_ride_power_curve
+    description: >
+      Per-ride mean-maximal power curve (MZY-269): best average watts per
+      standard duration (1 s … 2 h), measured power only. One row per (ride,
+      duration). Aggregate with group by duration_s max(watts) over a date
+      window for a season-best curve. Not forced monotonic.
+    columns:
+      - name: ride_duration_key
+        description: Surrogate key ride_id:duration_s.
+        tests: [not_null, unique]
+      - name: ride_id
+        tests: [not_null]
+      - name: duration_s
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 5400, 7200]
+              quote: false
+      - name: watts
+        tests: [not_null]

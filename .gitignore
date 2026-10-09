@@ -1,0 +1,109 @@
+# Logs
+/logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependencies
+node_modules
+.pnpm-store
+
+# Next.js build output
+.next
+out
+# `output: 'standalone'` server entrypoint, copied to the repo root by the
+# `postbuild` script (scripts/start-web.ts runs it) — a build artifact.
+/server.js
+
+# Build artifacts
+dist
+build
+tsconfig.tsbuildinfo
+
+# Environment files — NEVER commit real secrets. Only .env.example is tracked.
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sw?
+.DS_Store
+
+# Test coverage
+coverage/
+
+# Private per-user nutrition goals (water/supplement/macro targets). The repo
+# ships config/nutrition-goals.example.json as the template; a real user's
+# values are never committed. See scripts/seed-nutrition-goals.ts.
+config/*.local.json
+
+# Same pattern for the athlete's own training-program document — the repo
+# ships docs/training-program.example.md as the template; a real user's own
+# program (dates, distances, exercise selection) is never committed. See
+# docs/self-hosting/training-program.md.
+docs/training-program.local.md
+
+# dbt artifacts
+analytics/target/
+analytics/dbt_packages/
+analytics/logs/
+analytics/.user.yml
+
+# Knowledge vault — copyrighted source material. Per CLAUDE.md Knowledge Vault
+# Policy it MUST NEVER enter this repo. The consulting layer reads it from a
+# local path given via env only. Belt-and-suspenders ignore:
+vault/
+*.vault/
+
+# Lab-report intake — raw PDFs + extracted CSVs are PHI. Per the lab-ingestion
+# skill (.claude/skills/lab-ingestion/), never commit; only lab_panel_results
+# in the database is the durable home. Mirrors sihha's analytics/lab_results/
+# posture (gitignored PHI staging folder).
+/lab-reports/*
+!/lab-reports/.gitkeep
+!/lab-reports/processed/
+/lab-reports/processed/*
+!/lab-reports/processed/.gitkeep
+
+# Local Postgres data volume (if bind-mounted)
+.pgdata/
+
+# Persisted credential-like files the running app writes at runtime — the
+# migrated Argon2id login-secret hash (lib/auth/secretStore.ts). Bind-mounted
+# read-write in docker-compose.yml; never committed.
+/data/
+
+# Self-hosted OpenRouteService data (docker-compose.yml --profile local-ai) —
+# downloaded OSM extracts + generated routing graphs, regenerable, large.
+/ors-docker/
+
+# Local Whisper (mlx) Python environment — see scripts/requirements-transcription.txt
+.venv-transcribe/
+
+# Design-system bundle (design_system/v.1/) — a tool-generated "Organic + Agon"
+# brand/UI-kit export (tokens, assets, a user-invocable SKILL.md, plus generated
+# _ds_bundle.js / _ds_manifest.json / HTML spec). Kept local: no app code depends
+# on it, it's partly regenerable build output, and SKILL.md is meant to install as
+# a Claude skill rather than live in the product tree. Reinstate selectively if the
+# Phase-3 PWA starts consuming its assets/tokens.
+design_system/
+
+# Postgres dumps (pnpm db:backup, MZY-209) — the athlete's full personal data;
+# never committed. AGON_BACKUP_DIR can point these somewhere else entirely.
+backups/
+
+# Android signing keys (MZY-274) — the release keystore lives outside the
+# repo; this is defense in depth against a stray copy landing here.
+*.jks
+*.keystore

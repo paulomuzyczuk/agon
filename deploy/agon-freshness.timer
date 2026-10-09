@@ -1,0 +1,24 @@
+# Nightly schedule for the Agon data-freshness check (agon-freshness.service).
+#
+# See that unit for what it does and how to install both files.
+
+[Unit]
+Description=Run the Agon data freshness check nightly
+Requires=agon-freshness.service
+
+[Timer]
+# 08:00 local, not overnight: the alert should land when the athlete is awake and
+# can act on it, and by morning the previous day's training has had every chance
+# to sync. A 03:00 alert is one that gets read at 08:00 anyway, with a night of
+# lost catch-up time behind it.
+OnCalendar=*-*-* 08:00:00
+# Randomise a few minutes so the dbt container and any other timers don't all
+# contend at exactly the same instant.
+RandomizedDelaySec=300
+# If the tower was asleep or powered off at 08:00, run as soon as it is back:
+# a missed check is indistinguishable from a passing one, which is the failure
+# mode this whole mechanism exists to avoid.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

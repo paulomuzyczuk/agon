@@ -1,0 +1,24 @@
+version: 2
+
+seeds:
+  - name: strava_web_reference
+    description: >
+      Manually-captured reference points from Strava's web-only premium features
+      (no API endpoint exists for them), taken while a gifted month of Strava
+      premium was active. Ground truth for validating Agon's own reimplementations
+      once its marts exist (fct_training_load_daily / Banister CTL/ATL/TSB). Not a
+      live feed — a one-time snapshot; re-capture manually if refreshed.
+      See docs/strava-benchmark.md for the full benchmark.
+    config:
+      column_types:
+        value: numeric
+    columns:
+      - name: metric
+        description: Stable key (fitness_ctl, fatigue_atl, form_tsb, …).
+        tests:
+          - not_null
+          - unique
+      - name: value
+        tests: [not_null]
+      - name: captured_on
+        description: Date the value was read off the Strava web UI.

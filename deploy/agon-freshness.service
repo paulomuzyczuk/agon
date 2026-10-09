@@ -1,0 +1,43 @@
+# Agon data-freshness check — the ingestion dead-man's switch, run on a timer.
+#
+# Runs `pnpm data:freshness`: dbt checks how long it has been since each raw table
+# last received a row (thresholds in analytics/models/staging/_sources.yml), and
+# anything stale is messaged to Telegram. Exits non-zero when a source is
+# error-level or when the check itself could not run, so `systemctl status` and
+# `journalctl` show the failure even if Telegram is unreachable.
+#
+# Why this exists: between 2026-08-04 and 2026-08-20 no run reached the database
+# (Health Connect had stopped feeding Google Health) and nothing said so. The
+# training-load curve silently went wrong — TSB read +32.8 "deep taper" through a
+# normal training block — and the gap was found by accident, eight days in.
+#
+# Install alongside the timer (both files):
+#   sudo cp deploy/agon-freshness.service deploy/agon-freshness.timer /etc/systemd/system/
+#   sudoedit /etc/systemd/system/agon-freshness.service   # set the real paths
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now agon-freshness.timer
+#   systemctl list-timers agon-freshness                  # confirm next run
+#   sudo systemctl start agon-freshness.service           # run once, now
+#   journalctl -u agon-freshness -n 50                    # read the verdict
+#
+# Requires: Node + pnpm for the service User, Docker available to that User (dbt
+# runs in the pinned container via analytics/dbt.sh), .env.local with DATABASE_URL
+# and TELEGRAM_BOT_TOKEN, and TELEGRAM_OWNER_CHAT_ID for the alert to be delivered
+# rather than merely printed.
+
+[Unit]
+Description=Agon data freshness check (ingestion dead-man's switch)
+After=network-online.target docker.service postgresql.service
+Wants=network-online.target
+
+[Service]
+# oneshot: this runs, reports, and exits — there is nothing to keep alive.
+Type=oneshot
+User=agon
+WorkingDirectory=/opt/agon
+EnvironmentFile=-/opt/agon/.env.local
+ExecStart=/usr/bin/env pnpm data:freshness
+# No Restart=: a failure here is a REPORT, not a crash. Retrying would spam
+# Telegram with the same alert and tell you nothing new — the timer brings it
+# back tomorrow, by which time the pipeline is either fixed or still broken.
+TimeoutStartSec=900

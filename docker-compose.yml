@@ -1,0 +1,198 @@
+# Agon — self-host orchestration. Merges the former docker-compose.yml (local
+# dev Postgres) and deploy/docker-compose.selfhost.yml (local-AI + dbt) into
+# one profiled file (self-hosting decision — see CLAUDE.md "App packaging").
+#
+# The image is code-only; personal/stateful data is supplied at runtime via
+# `env_file` (secrets/config vars — see .env.example) and one bind mount
+# (config/ — the athlete-profile/nutrition-goals *.local.json files
+# lib/athleteProfile.ts and the nutrition-goals seed script read; nothing else
+# in this repo reads a local file path at runtime, unlike Hephaistos's
+# multi-directory bind-mount list — see .dockerignore). Nothing sensitive is
+# baked into the image.
+#
+# Always pass --env-file .env.local: Compose's OWN variable substitution
+# (${AGON_WEB_HOST_BIND_IP}, ${DBT_WRITER_PASSWORD}, ...) reads a file literally
+# named .env by default, NOT .env.local — this repo keeps one env file
+# (.env.local, gitignored, same file Next.js and the tsx scripts already read)
+# rather than maintaining two, so every command below spells it out explicitly.
+#
+# Profiles (opt in/out of pieces):
+#   docker compose --env-file .env.local up -d                            # db + app + bot (the minimal useful instance)
+#   docker compose --env-file .env.local --profile local-ai up -d ollama ors-app
+#   docker compose --env-file .env.local --profile analytics run --rm dbt build   # one-shot, not a daemon
+#   docker compose --env-file .env.local run --rm app tsx scripts/migrate.ts  # one-off admin scripts (see package.json for the full script list)
+#
+# See docs/self-hosting/README.md for the full walkthrough.
+
+# Pinned rather than left to default to the checkout directory's basename —
+# gives predictable container names (agon-db-1, agon-app-1, ...) regardless of
+# what a self-hoster names their clone, and was the root cause of a real
+# collision hit during this packaging work's own testing (two checkouts both
+# defaulting to a bare `container_name: agon-db` fought over the same name;
+# removed those explicit names in favor of this one pinned project name,
+# which Compose safely suffixes per-service instead).
+name: agon
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: agon
+      POSTGRES_PASSWORD: agon
+      POSTGRES_DB: agon
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - agon_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U agon -d agon']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # The web app. Bind-safety guard: lib/webBind.ts refuses an all-interfaces
+  # bind unless AGON_WEB_ALLOW_PUBLIC is set — set here deliberately because
+  # 0.0.0.0 *inside the container* is safe (Docker's own network namespace is
+  # the isolation boundary at this level); REAL host-level exposure is
+  # controlled by the `ports:` mapping below via AGON_WEB_HOST_BIND_IP, which
+  # defaults to 127.0.0.1 (host-loopback only — safe-by-default even though
+  # the in-container bind itself is the wildcard). Set AGON_WEB_HOST_BIND_IP
+  # to your Tailscale IP (`tailscale ip -4`) to reach it from another device;
+  # see docs/self-hosting/network-exposure.md.
+  app:
+    build: .
+    image: agon:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgresql://agon:agon@db:5432/agon
+      AGON_WEB_BIND_HOST: '0.0.0.0'
+      AGON_WEB_BIND_PORT: '3000'
+      AGON_WEB_ALLOW_PUBLIC: 'true'
+    ports:
+      - '${AGON_WEB_HOST_BIND_IP:-127.0.0.1}:${AGON_WEB_BIND_PORT:-3000}:3000'
+    volumes:
+      - ./config:/app/config:ro
+      # Read-write, unlike config/ above: lib/auth/secretStore.ts persists the
+      # migrated Argon2id login-secret hash here on first login (see
+      # .env.example's "Login gate" section) — a container has no access to
+      # rewrite the host's .env.local itself (env_file: only injects vars at
+      # container creation), so this bind mount is the durable, restart-safe
+      # home for that one credential-like file instead. Must be writable by
+      # uid 1000 (the image's non-root `node` user) on Linux hosts.
+      - ./data:/app/data
+
+  # The Telegram bot (long-poll listener — no exposure needed, it dials out).
+  # Same image as `app`, different CMD.
+  bot:
+    build: .
+    image: agon:local
+    command: ['tsx', 'scripts/telegram-poll.ts']
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgresql://agon:agon@db:5432/agon
+    volumes:
+      - ./config:/app/config:ro
+
+  # ── --profile local-ai — fully-local AI + routing stack (no API keys) ──────
+  # Set AGON_LLM_PROVIDER=ollama / AGON_TRANSCRIPTION_PROVIDER=whisper-cpp (the
+  # latter also needs a host- or container-built whisper.cpp — see
+  # docs/self-hosting/README.md) and ORS_BASE_URL=http://localhost:8080/ors in
+  # .env.local to point the app at these.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ['local-ai']
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    # GPU acceleration. Requires the NVIDIA Container Toolkit on the host:
+    #   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
+    # Remove this block to run CPU-only (slower but works).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # OpenRouteService routing engine (target-distance running-route loops).
+  # ORS's Docker config evolves across versions — this is a foot-walking-only,
+  # single-region setup; cross-check the current docs if a key changed:
+  # https://giscience.github.io/openrouteservice/run-instance/running-with-docker
+  ors-app:
+    image: openrouteservice/openrouteservice:v8.0.0
+    profiles: ['local-ai']
+    ports:
+      - '8080:8082' # API at http://localhost:8080/ors/v2/...
+    volumes:
+      - ./ors-docker/graphs:/home/ors/graphs
+      - ./ors-docker/elevation_cache:/home/ors/elevation_cache
+      - ./ors-docker/config:/home/ors/config
+      - ./ors-docker/files:/home/ors/files
+    environment:
+      # Drop a regional extract here first, e.g. from Geofabrik:
+      #   mkdir -p ors-docker/files
+      #   curl -L -o ors-docker/files/region.osm.pbf \
+      #     https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
+      ors.engine.source_file: /home/ors/files/region.osm.pbf
+      ors.engine.profiles.foot-walking.enabled: 'true'
+      ors.engine.profiles.driving-car.enabled: 'false'
+      ors.engine.profiles.cycling-regular.enabled: 'false'
+      # Set to True the first run (or after swapping the PBF) to build the graph.
+      REBUILD_GRAPHS: 'False'
+      XMS: 1g
+      XMX: 4g
+    restart: unless-stopped
+
+  # ── --profile analytics — dbt build (Phase 3) ──────────────────────────────
+  # Run-on-demand CLI, not a daemon — gated behind the `analytics` profile so
+  # `up -d` never starts it. Same content as the retired
+  # deploy/docker-compose.selfhost.yml; see also analytics/dbt.sh, which runs
+  # the identical container directly (works with no compose file at all).
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.0
+    # The published image is amd64-only. Harmless/native on an amd64 host; on
+    # Apple Silicon this makes Docker run it under emulation.
+    platform: linux/amd64
+    profiles: ['analytics']
+    working_dir: /usr/app
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./analytics:/usr/app
+      - dbt-target:/usr/app/target
+    environment:
+      DBT_HOST: db
+      DBT_PORT: '5432'
+      DBT_USER: ${DBT_WRITER_USER:-dbt_writer}
+      # A soft default, not a hard-required `:?` — compose interpolates every
+      # service block up front regardless of active profile, so a required var
+      # here would block `docker compose up` even for someone who only wants
+      # db+app+bot and never touches the analytics profile. Mirrors
+      # analytics/dbt.sh's own local-default fallback. Set a real
+      # DBT_WRITER_PASSWORD in .env.local before actually using this profile.
+      DBT_PASSWORD: ${DBT_WRITER_PASSWORD:-dbtlocal}
+      DBT_DBNAME: agon
+      DBT_SCHEMA: analytics
+      DBT_SSLMODE: disable
+      DBT_PROFILES_DIR: /usr/app
+    # No `restart:` — one-shot; `run --rm` exits when the command finishes.
+
+volumes:
+  agon_pgdata:
+  ollama-models:
+  dbt-target:

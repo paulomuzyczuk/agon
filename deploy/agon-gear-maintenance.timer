@@ -1,0 +1,21 @@
+# Nightly schedule for the Agon bike maintenance check (agon-gear-maintenance.service).
+#
+# See that unit for what it does and how to install both files.
+
+[Unit]
+Description=Run the Agon bike maintenance check nightly
+Requires=agon-gear-maintenance.service
+
+[Timer]
+# 08:05 local — 5 minutes after the data-freshness timer's 08:00 slot, so the
+# two don't contend for the same instant (this one has no Docker/dbt step so
+# contention is low-risk anyway, but the offset costs nothing).
+OnCalendar=*-*-* 08:05:00
+RandomizedDelaySec=300
+# If the tower was asleep or powered off at 08:05, run as soon as it is back —
+# a missed check silently extends how overdue a task can get before anyone's
+# told.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

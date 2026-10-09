@@ -1,0 +1,39 @@
+# Agon bike maintenance check, run on a timer.
+#
+# Runs `pnpm gear:check-maintenance`: compares each active bike's current
+# mileage (services/marts/gear.ts gearMileage) against the maintenance-task
+# catalog (lib/gearMaintenance.ts), and messages Telegram when a threshold
+# (e.g. chain lube every 300 km) is crossed. Unlike the data-freshness check,
+# a clean bike is NOT itself worth a message — only a crossing is, so this
+# never spams the phone on a healthy bike.
+#
+# Install alongside the timer (both files):
+#   sudo cp deploy/agon-gear-maintenance.service deploy/agon-gear-maintenance.timer /etc/systemd/system/
+#   sudoedit /etc/systemd/system/agon-gear-maintenance.service   # set the real paths
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now agon-gear-maintenance.timer
+#   systemctl list-timers agon-gear-maintenance                  # confirm next run
+#   sudo systemctl start agon-gear-maintenance.service           # run once, now
+#   journalctl -u agon-gear-maintenance -n 50                    # read the verdict
+#
+# Requires: Node + pnpm for the service User, .env.local with DATABASE_URL and
+# TELEGRAM_BOT_TOKEN, and TELEGRAM_OWNER_CHAT_ID for the alert to be delivered
+# rather than merely printed. No Docker/dbt dependency (unlike the freshness
+# check) — this is a direct Postgres query.
+
+[Unit]
+Description=Agon bike maintenance check
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+# oneshot: this runs, reports, and exits — there is nothing to keep alive.
+Type=oneshot
+User=agon
+WorkingDirectory=/opt/agon
+EnvironmentFile=-/opt/agon/.env.local
+ExecStart=/usr/bin/env pnpm gear:check-maintenance
+# No Restart=: a failure here is a REPORT, not a crash. Retrying would spam
+# Telegram with the same alert and tell you nothing new — the timer brings it
+# back tomorrow, by which time the task is either logged or still overdue.
+TimeoutStartSec=120

@@ -1,0 +1,1027 @@
+/* Base, mobile-first styles for the Agon PWA. Dark, high-contrast, no CSS
+   framework (the repo stays dependency-light). Kept small — component-specific
+   styling stays inline or co-located. */
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #14171c;
+  --border: #232830;
+  --text: #e7e9ec;
+  --muted: #8a919c;
+  --accent: #4f9cf9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.page-head h1 {
+  margin: 0.5rem 0 0.15rem;
+  font-size: 1.5rem;
+}
+
+.page-head .sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.back {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.stat-label {
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 0.75rem 0.75rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+/* Home tile grid */
+.tiles {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.tile {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+.tile h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.tile p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* Unfinished-recordings count on the Record tile (MZY-287). */
+.tile-badge {
+  display: inline-block;
+  vertical-align: middle;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Race predictions list */
+.pred-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pred-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pred-row:last-child {
+  border-bottom: none;
+}
+
+.pred-dist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.pred-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.pred-tag {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #f5b74a;
+  border: 1px solid #f5b74a55;
+  border-radius: 4px;
+  padding: 1px 4px;
+  align-self: flex-start;
+}
+
+.pred-figures {
+  text-align: right;
+}
+
+.pred-time {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.pred-pace {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pred-band {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pred-band-pct {
+  opacity: 0.7;
+}
+
+.pred-verified {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--border);
+  font-size: 0.72rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.pred-verified-none {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.pred-verified-time {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pred-verified-delta {
+  color: var(--muted);
+}
+
+.pred-verified-meta {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.pred-verified-link {
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.pred-verified-link:hover .pred-verified-time {
+  text-decoration: underline;
+}
+
+/* Relative Effort per-run list */
+.re-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.re-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.re-row:last-child {
+  border-bottom: none;
+}
+
+.re-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.re-date {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.re-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.re-score {
+  text-align: right;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.re-per-hour {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.re-bar-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.re-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.re-method {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* Recent-runs list — reuses the .re-row grid layout as a clickable link. */
+.run-row-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.run-row-link:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.run-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.run-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.run-detail-field .label {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.run-detail-field .value {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Weekly run compliance */
+.rc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rc-row {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.rc-row:last-child {
+  border-bottom: none;
+}
+
+.rc-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.35rem;
+}
+
+.rc-week {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rc-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.rc-bar-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 40px;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.rc-bar-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.rc-bar-track {
+  position: relative;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: visible;
+}
+
+.rc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  max-width: 100%;
+}
+
+.rc-bar-ref {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: #6b7280;
+  opacity: 0.6;
+}
+
+.rc-bar-pct {
+  font-size: 0.72rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wellness / recovery small-multiples */
+.stat-unit {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.wl-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.wl-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.wl-metric-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.wl-metric-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.wl-metric-value {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-metric-unit {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.wl-trend {
+  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Body composition — small multiples, same shape as .wl-* (wellness) */
+.bc-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.bc-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bc-metric-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bc-metric-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.bc-metric-value {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bc-metric-unit {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.bc-trend {
+  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bc-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nutrition — goals grid + usual-meals list */
+.nt-goal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.nt-water-note {
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.nt-meal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nt-meal-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.nt-meal-row:last-child {
+  border-bottom: none;
+}
+
+.nt-meal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.nt-meal-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.nt-meal-tag {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #f5b74a;
+  border: 1px solid #f5b74a55;
+  border-radius: 4px;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+
+.nt-meal-macros {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-btn {
+  background: var(--accent);
+  color: #05101f;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nt-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nt-btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.nt-field-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.nt-select,
+.nt-input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.82rem;
+}
+
+.nt-select {
+  flex: 2;
+  min-width: 0;
+}
+
+.nt-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.nt-item-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+
+.nt-log-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.nt-log-row:last-child {
+  border-bottom: none;
+}
+
+.nt-log-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.nt-log-slot {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.nt-log-items {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.nt-error {
+  color: #f97362;
+  font-size: 0.75rem;
+  margin-top: 0.4rem;
+}
+
+/* General-health creation forms (app/health) — reuse the nt-* input/button
+   look but stacked full-width, since these forms have more fields than the
+   nutrition log's single-row pickers. */
+.hc-form {
+  margin-top: 0.5rem;
+}
+
+.hc-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.hc-type-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.hc-type-btn.active {
+  background: var(--accent);
+  color: #05101f;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.hc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+}
+
+.hc-field label {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.hc-field input,
+.hc-field select,
+.hc-field textarea {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.82rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hc-field textarea {
+  resize: vertical;
+  min-height: 2.5rem;
+}
+
+.hc-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.hc-row .hc-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.hc-step-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+
+/* Activity recording (app/record) — HR pairing/status classes carried over
+   verbatim from the retired Web Bluetooth PoC (app/heart-rate). */
+.hr-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+
+.hr-status-stale {
+  color: #f5b74a;
+}
+
+.hr-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.hr-error {
+  color: #f97362;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+/* Pace/distance/cadence tiles have no data source yet this pass. */
+.stat-value-placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.rec-unflushed-row {
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.rec-unflushed-row:first-of-type {
+  border-top: none;
+  margin-top: 0.5rem;
+  padding-top: 0;
+}
+
+.rec-distance-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  width: 7.5rem;
+  font-size: 0.85rem;
+}
+
+/* Single-owner login gate (app/login) */
+.login-card {
+  margin-top: 3rem;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 1.4rem;
+  margin: 0 0 0.25rem;
+}
+
+.login-subtitle {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.login-input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.login-error {
+  color: #f97066;
+  font-size: 0.8rem;
+  margin-top: 0.75rem;
+}
+
+/* Outbox status bar (components/OutboxStatus.tsx, MZY-205) */
+.ob-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #1d1a10;
+  border-bottom: 1px solid #5c4a14;
+  padding: 0.4rem 1rem;
+  font-size: 0.78rem;
+}
+
+.ob-bar-failed {
+  background: #231312;
+  border-bottom-color: #6b2a24;
+}
+
+.ob-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ob-toggle .muted {
+  margin-left: auto;
+}
+
+.ob-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #e5b53a;
+  flex: none;
+}
+
+.ob-bar-failed .ob-dot {
+  background: #f97362;
+}
+
+.ob-auth {
+  margin: 0.35rem 0 0;
+}
+
+.ob-auth a {
+  color: var(--accent);
+}
+
+.ob-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+
+.ob-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.ob-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex: none;
+}
+
+/* Inline meal edit (components/MealLogEditor.tsx, MZY-206) */
+.nt-log-edit {
+  width: 100%;
+}
+
+/* Idle sync line (components/OutboxStatus.tsx SyncLine, MZY-207) */
+.ob-sync {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.3rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ob-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ob-link:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* Run/ride hand corrections (components/ActivityCorrectionPanel.tsx, MZY-253). */
+.corrected-badge {
+  display: inline-block;
+  vertical-align: middle;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.cx-preview {
+  width: 100%;
+  margin-top: 0.7rem;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-preview th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.7rem;
+  text-align: right;
+  padding: 0.2rem 0;
+}
+
+.cx-preview td {
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+
+.cx-preview td:first-child {
+  text-align: left;
+  color: var(--muted);
+}

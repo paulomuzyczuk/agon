@@ -1,0 +1,22 @@
+# Agon dbt project (Phase 3). Minimal stub so the containerized dbt service has
+# a valid project to run against before the models land — mirrors the sihha
+# layout. `dbt parse` / `dbt debug` work now; `dbt build` becomes meaningful once
+# staging models + marts are added under models/.
+name: 'agon_analytics'
+version: '1.0.0'
+profile: 'agon_analytics'
+
+model-paths: ['models']
+target-path: 'target'
+clean-targets: ['target', 'dbt_packages']
+
+models:
+  agon_analytics:
+    # stg_* views over raw ingestion tables in public.
+    staging:
+      +materialized: view
+    # fct_* marts + metrics (fct_training_load_daily, fct_lift_progression,
+    # fct_run_compliance_weekly, fct_nutrition_vs_targets, fct_body_comp_trend,
+    # fct_race_predictions, fct_run_fueling, fct_ride_fueling — see CLAUDE.md Analytics Stack).
+    marts:
+      +materialized: table

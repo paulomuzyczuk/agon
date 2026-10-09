@@ -1,0 +1,74 @@
+[
+  {
+    "goalKey": "water_base_l",
+    "value": 2.5,
+    "unit": "l",
+    "notes": "Baseline daily water target before adding estimated sweat loss from planned exercise (see lib/nutritionGoals.ts)."
+  },
+  {
+    "goalKey": "vitamin_c_mg",
+    "value": 90,
+    "unit": "mg",
+    "notes": "Daily supplement target."
+  },
+  {
+    "goalKey": "zinc_mg",
+    "value": 11,
+    "unit": "mg",
+    "notes": "Daily supplement target."
+  },
+  {
+    "goalKey": "vitamin_d_iu",
+    "value": 600,
+    "unit": "iu",
+    "notes": "Daily supplement target."
+  },
+  {
+    "goalKey": "kcal_min",
+    "value": 2200,
+    "unit": "kcal",
+    "notes": "Daily calorie target, low end of range. Optional — omit both kcal_min/kcal_max to skip a kcal goal entirely."
+  },
+  {
+    "goalKey": "kcal_max",
+    "value": 2400,
+    "unit": "kcal",
+    "notes": "Daily calorie target, high end of range."
+  },
+  {
+    "goalKey": "creatine_g_min",
+    "value": 3,
+    "unit": "g",
+    "notes": "Daily creatine target, low end of range. Optional."
+  },
+  {
+    "goalKey": "creatine_g_max",
+    "value": 5,
+    "unit": "g",
+    "notes": "Daily creatine target, high end of range."
+  },
+  {
+    "goalKey": "protein_g_per_kg_min",
+    "value": 1.6,
+    "unit": "g/kg",
+    "notes": "Macro-formula param: daily protein target = latest logged bodyweight x this range. Optional — omit all 4 macro-formula params below to skip protein/carbs/fat goals entirely."
+  },
+  {
+    "goalKey": "protein_g_per_kg_max",
+    "value": 2.0,
+    "unit": "g/kg",
+    "notes": "Macro-formula param: daily protein target = latest logged bodyweight x this range."
+  },
+  {
+    "goalKey": "carb_share_pct",
+    "value": 60,
+    "unit": "%",
+    "notes": "Macro-formula param: share of the calories remaining after protein given to carbs, in 10%-point steps. Must sum with fat_share_pct to 100."
+  },
+  {
+    "goalKey": "fat_share_pct",
+    "value": 40,
+    "unit": "%",
+    "notes": "Macro-formula param: share of the calories remaining after protein given to fat. Must sum with carb_share_pct to 100."
+  }
+]

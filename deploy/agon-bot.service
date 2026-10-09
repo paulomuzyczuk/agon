@@ -1,0 +1,43 @@
+# Agon Telegram bot — long-poll listener as a systemd service.
+#
+# Runs `pnpm telegram:poll` always-on on the self-hosted Linux tower (CLAUDE.md
+# Infrastructure). Long-polling dials OUT to Telegram, so there is NO public URL,
+# port-forwarding, or TLS to set up — nothing is exposed through the home router.
+# Run exactly ONE poll listener, and never a poll listener + a webhook at once
+# (Telegram allows only one update channel).
+#
+# Install (adjust WorkingDirectory / User / ExecStart paths to your box):
+#   sudo cp deploy/agon-bot.service /etc/systemd/system/agon-bot.service
+#   sudoedit /etc/systemd/system/agon-bot.service   # set the real paths
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now agon-bot            # start now + on every boot
+#   journalctl -u agon-bot -f                       # tail logs
+#
+# Requires: Node + pnpm (via corepack) installed for the service User, the repo
+# checked out at WorkingDirectory, and .env.local filled in (TELEGRAM_BOT_TOKEN,
+# DATABASE_URL, ORS_API_KEY, AGON_HOME_LAT/LNG, Google Calendar tokens in the DB,
+# and AGON_TRANSCRIPTION_PROVIDER=openai since mlx-whisper is Apple-only).
+
+[Unit]
+Description=Agon Telegram bot (long-poll listener)
+After=network-online.target postgresql.service
+Wants=network-online.target
+# Stop trying if it crash-loops 5x within 5 min (usually a config/secret error).
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=agon
+WorkingDirectory=/opt/agon
+# Secrets + config are read from .env.local by the app (scripts/loadEnv.ts); this
+# EnvironmentFile line is optional but lets systemd inject them too if preferred.
+EnvironmentFile=-/opt/agon/.env.local
+# `env` resolves pnpm from the User's PATH (corepack shim). If pnpm isn't on the
+# service PATH, use an absolute path, e.g. ExecStart=/usr/local/bin/pnpm telegram:poll
+ExecStart=/usr/bin/env pnpm telegram:poll
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

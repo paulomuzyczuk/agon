@@ -1,0 +1,17 @@
+# Approve the postinstall build scripts we actually rely on. Everything else
+# stays blocked by default (pnpm's supply-chain guard). Mirrors sihha.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+# Security overrides (MZY-298). Next 15.5.x pins postcss to exactly 8.4.31,
+# which carries advisories (and old nanoid / source-map-js beneath it) fixed in
+# 8.5.18. Only versions below that are replaced. Remove once Next ships a fixed
+# postcss.
+# Gotcha: pnpm 11 doesn't re-resolve when only this block changes ("Already up
+# to date"); after editing it, change package.json or delete the affected
+# lockfile entries so the lockfile picks the override up. Overrides in
+# package.json's "pnpm" field are ignored.
+overrides:
+  'postcss@<8.5.18': ^8.5.18

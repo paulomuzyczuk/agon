@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agon — server unreachable</title>
+    <style>
+      body { font-family: system-ui, sans-serif; background: #111; color: #eee; padding: 24px; }
+      button { font-size: 1rem; padding: 12px 20px; margin-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <!-- Capacitor server.errorPath (capacitor.config.ts): shown when the
+         Agon server is unreachable and the service worker has no cached copy. -->
+    <h1>Agon server unreachable</h1>
+    <p>The app couldn't reach your Agon server. Check that it is running and that this phone can reach it (e.g. Tailscale is on).</p>
+    <p>Recordings already buffered on this phone are kept and will flush once the server is back.</p>
+    <button onclick="history.length > 1 ? history.back() : location.reload()">Retry</button>
+  </body>
+</html>

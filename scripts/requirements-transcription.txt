@@ -1,0 +1,20 @@
+# Local, offline speech-to-text for Agon voice notes (Apple Silicon).
+# Mirrors the pygmalion project's transcription stack. This is an OPTIONAL,
+# separate toolchain from the Node app — only needed if you run transcription
+# locally (AGON_TRANSCRIPTION_PROVIDER=mlx-whisper) rather than a hosted provider.
+#
+# Python: 3.11 or 3.12 (tested). Avoid 3.13+/3.14 — mlx-whisper's transitive
+# deps (numpy/scipy/sympy wheels) often lag new interpreter releases, so a fresh
+# venv on the latest Python can fail to resolve prebuilt wheels. Pin explicitly:
+#   python3.12 -m venv .venv-transcribe   (or: uv venv --python 3.12 .venv-transcribe)
+#
+# Setup:
+#   python3.12 -m venv .venv-transcribe && source .venv-transcribe/bin/activate
+#   pip install -r scripts/requirements-transcription.txt
+#   brew install ffmpeg          # Whisper needs ffmpeg to decode audio
+#   # then point AGON_TRANSCRIPTION_PYTHON at that venv's python if not on PATH
+#
+# The medium model (~1.5 GB) downloads once from Hugging Face on first run, then
+# runs fully offline. Apple Silicon (M-series) only; on other machines swap to a
+# hosted provider or faster-whisper.
+mlx-whisper==0.4.3

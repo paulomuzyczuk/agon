@@ -1,0 +1,79 @@
+# Keep the image to code + deps only. Everything personal or stateful is
+# bind-mounted at runtime (see docker-compose.yml), never baked into the
+# image — a security boundary, not just size hygiene: the image must carry
+# zero credentials, health data, or PII. Mirrors the sibling Hephaistos
+# project's .dockerignore.
+
+# Secrets & credentials — must NEVER enter the image.
+.env
+.env.*
+!.env.example
+
+# Personal config (self-hosting decision — see CLAUDE.md "Config/secrets
+# templating"). The *.example.* templates ARE copied (they're generic).
+config/*.local.json
+docs/training-program.local.md
+
+# Knowledge vault — copyrighted source material (CLAUDE.md Knowledge Vault
+# Policy). vault.example/ IS copied (it's the sample page format).
+vault/
+*.vault/
+
+# Lab-report intake — raw PDFs + extracted CSVs are PHI.
+lab-reports/
+
+# Local Postgres data volume (if bind-mounted).
+.pgdata/
+
+# Persisted credential-like files (migrated login-secret hash) — bind-mounted
+# read-write at runtime (docker-compose.yml), never baked into the image.
+data/
+
+# Node
+node_modules
+.pnpm-store
+.next
+out
+
+# Local Whisper (mlx) Python environment — Apple-Silicon-only, never runs in
+# a Linux container anyway.
+.venv-transcribe/
+
+# Build artifacts / caches.
+tsconfig.tsbuildinfo
+coverage/
+dist
+build
+
+# Design-system bundle — not consumed by any app code (see .gitignore).
+design_system/
+
+# VCS & OS cruft.
+.git/
+.gitignore
+.dockerignore
+.DS_Store
+.idea/
+.vscode/
+
+# Tests — not needed at runtime.
+__tests__/
+jest.config.ts
+jest.integration.config.ts
+jest.setup.ts
+tsconfig.jest.json
+
+# Docs (*.md), including CLAUDE.md — dev-time documentation only, nothing at
+# runtime reads it, and CLAUDE.md in particular is this maintainer's own
+# personal project journal (weight/HR/location entries, decision history) —
+# it must not ship inside a "shareable" image any more than config/*.local.json
+# does. docs/training-program.example.md is a generic template (no personal
+# data) but is still unused at runtime, so it's excluded on the same
+# code-vs-docs principle as everything else here.
+*.md
+docs/
+
+analytics/target/
+analytics/dbt_packages/
+analytics/logs/
+analytics/.user.yml

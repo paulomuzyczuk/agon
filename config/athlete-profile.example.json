@@ -1,0 +1,19 @@
+{
+  "timeZone": "America/New_York",
+  "trainingStartDate": "2026-01-05",
+  "programWeeksPerBlock": 8,
+  "programBlockCount": 3,
+  "hrMax": 190,
+  "hrRest": 60,
+  "sweatRateBaselineLPerH": 0.8,
+  "sweatSodiumMgPerL": 950,
+  "liftSweatRateLPerH": 0.4,
+  "weightKgFallback": 75,
+  "startingWeightKg": 80,
+  "startingBodyFatPct": 20,
+  "vo2maxMeasured": 50,
+  "ftpHistory": [
+    { "watts": 220, "date": "2026-01-05" },
+    { "watts": 235, "date": "2026-03-02" }
+  ]
+}

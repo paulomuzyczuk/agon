@@ -1,0 +1,31 @@
+# dbt connection profile for Agon's Postgres. NO SECRETS HERE — every value
+# comes from environment variables. When run via the containerized dbt service
+# (docker-compose.yml, `--profile analytics`), these are the DBT_*
+# vars set in that service block; run locally, export the same vars first.
+#
+# dbt picks this up when DBT_PROFILES_DIR=/usr/app (set by the compose service),
+# or run with `--profiles-dir .` from this directory.
+#
+# dbt runs as the least-privilege `dbt_writer` role (migration
+# 20260723001000_analytics_roles.sql) — it owns the `analytics` schema and only
+# reads whitelisted `public` source tables. Never point this at a superuser or
+# the app's DATABASE_URL.
+#
+# All dbt-built objects land in the `analytics` schema, reachable only via direct
+# Postgres connections (dbt, Lightdash) — never the public API.
+agon_analytics:
+  target: prod
+  outputs:
+    prod:
+      type: postgres
+      host: "{{ env_var('DBT_HOST') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | as_number }}"
+      user: "{{ env_var('DBT_USER', 'dbt_writer') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'agon') }}"
+      schema: "{{ env_var('DBT_SCHEMA', 'analytics') }}"
+      threads: 4
+      # Local no-SSL Docker Postgres uses `disable`; a managed/pooled Postgres
+      # (Supabase direct connection) uses `require`. Defaults to disable to match
+      # the tower's local stack; the compose service passes it through explicitly.
+      sslmode: "{{ env_var('DBT_SSLMODE', 'disable') }}"

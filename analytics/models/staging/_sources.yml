@@ -1,0 +1,272 @@
+version: 2
+
+# Raw ingestion tables in the app's `public` schema, exposed to dbt as sources.
+# dbt_writer holds SELECT on each (whitelisted per table in the migration that
+# creates it — see migrations/20260723001000_analytics_roles.sql).
+sources:
+  - name: agon_raw
+    schema: public
+    description: Raw ingestion tables written by the app + reference pulls.
+
+    # Freshness is Agon's DEAD-MAN'S SWITCH on ingestion (CLAUDE.md, Analytics
+    # Stack). The failure it exists to catch actually happened: between 2026-08-04
+    # and 2026-08-20 no runs reached the database — Health Connect had stopped
+    # feeding Google Health — and nothing said so. The gap was found by accident,
+    # eight days in, and it silently corrupted the training-load curve (TSB read
+    # +32.8 "deep taper" while the athlete was training normally).
+    #
+    # `loaded_at_field` is `created_at`, NOT `updated_at`, on purpose: updated_at
+    # is bumped by later enrichment passes (weather, HR backfill, Strava
+    # match-enrich), so a table with no NEW rows would still look fresh. created_at
+    # answers the question that matters — when did something new last arrive?
+    #
+    # Thresholds are per-table because a cried-wolf alarm gets ignored, which is
+    # the classic way a dead-man's switch dies. See each table for the reasoning.
+    tables:
+      - name: strava_best_efforts
+        description: >
+          One-time Strava-premium reference pull of per-activity best_efforts
+          (the paywall-only per-distance splits). Strava is not a live source;
+          this is captured ground truth, frozen since 2026-08-01. Superseded
+          2026-09-05 by run_best_efforts as the live input to PR predictions —
+          kept only as a historical/sanity-check reference (see
+          scripts/backfill-best-efforts.ts's Strava comparison). Grain: one
+          row per (activity, named distance). No freshness check: it is
+          deliberately frozen, not stale.
+        columns:
+          - name: strava_activity_id
+            tests: [not_null]
+          - name: effort_name
+            tests: [not_null]
+          - name: distance_m
+            tests: [not_null]
+          - name: elapsed_time_s
+            tests: [not_null]
+      - name: run_best_efforts
+        description: >
+          Source-agnostic best efforts derived from the athlete's own
+          runs/run_streams by lib/bestEfforts.ts (`pnpm be:backfill`) — the
+          live input to PR predictions, superseding strava_best_efforts.
+          Grain: one row per (run_id, effort_name).
+        # Derived, not ingested: stale means new runs landed but
+        # `pnpm be:backfill` never re-scored them (same reasoning as
+        # run_relative_effort). WARN only: with no new runs there is
+        # legitimately nothing to recompute.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 168, period: hour }
+        columns:
+          - name: run_id
+            tests: [not_null]
+          - name: effort_name
+            tests: [not_null]
+          - name: distance_m
+            tests: [not_null]
+          - name: elapsed_time_s
+            tests: [not_null]
+      - name: runs
+        description: Canonical runs (multi-source ingestion). Dims for the RE mart.
+        # The primary switch. The athlete runs 4–5×/week, so three days with no new
+        # run row is already unusual and seven is not credible as training — by
+        # then it is a broken pipeline until proven otherwise. A genuine deload or
+        # injury week will trip this; that false positive is the price of catching
+        # the real thing, and it is answered by looking rather than by widening.
+        loaded_at_field: created_at
+        freshness:
+          warn_after: { count: 72, period: hour }
+          error_after: { count: 168, period: hour }
+      - name: rides
+        description: >
+          Canonical bike rides (multi-source ingestion, mirrors `runs`).
+          Read by fct_ride_relative_effort / fct_ride_fueling (dims) and
+          fct_ride_power (power columns + power_source provenance, MZY-267).
+        # WARN only, and generously: unlike running (4-5x/week, the primary
+        # modality — see the `runs` entry above), bike sessions are a roughly
+        # weekly-to-biweekly cross-training addition per the athlete's
+        # program (docs/training-program.local.md). An error threshold here
+        # would fire on normal training, not a broken pipeline.
+        loaded_at_field: created_at
+        freshness:
+          warn_after: { count: 336, period: hour }
+
+      - name: daily_activity
+        description: >
+          Daily activity + resting HR from Google Health (Fitbit Air). Written by
+          `pnpm gh:wellness`. Not read by any mart — declared as a source purely so
+          freshness watches it.
+        # The SHARPEST ingestion signal, because it is independent of whether the
+        # athlete trained: resting HR lands every day the watch is worn. If runs go
+        # stale the cause is ambiguous (no training, or no ingestion); if THIS goes
+        # stale the pipeline is broken, full stop.
+        loaded_at_field: created_at
+        freshness:
+          warn_after: { count: 48, period: hour }
+          error_after: { count: 120, period: hour }
+
+      - name: body_metrics
+        description: >
+          Weight/body-fat weigh-ins logged via Telegram (/weight, /bf). Not read
+          by any mart directly (fct_body_comp_trend reads stg_body_metrics) —
+          declared as a source so freshness watches it.
+        # WARN only, and generously: weigh-ins are athlete-paced (roughly
+        # monthly in practice), so an error threshold would fire on normal
+        # behaviour, not a broken pipeline.
+        loaded_at_field: created_at
+        freshness:
+          warn_after: { count: 720, period: hour }
+
+      - name: sleep_sessions
+        description: >
+          Sleep sessions from Google Health. Written by `pnpm gh:wellness`.
+          Declared as a source for freshness only.
+        loaded_at_field: created_at
+        freshness:
+          warn_after: { count: 72, period: hour }
+
+      - name: hrv_daily
+        description: >
+          Daily HRV (RMSSD) from Google Health. Written by `pnpm gh:wellness`.
+          Declared as a source for freshness only.
+        # WARN only, and generously: HRV genuinely arrives sparsely (2 days in the
+        # 10 to 2026-08-23), so an error threshold here would fire on normal
+        # behaviour and train the athlete to ignore the whole report.
+        loaded_at_field: created_at
+        freshness:
+          warn_after: { count: 168, period: hour }
+
+      - name: run_relative_effort
+        description: >
+          Per-run Relative Effort (Banister TRIMP), derived by
+          lib/relativeEffort.ts from the run_streams HR series (or avg HR).
+          Grain: one row per run.
+        # Derived, not ingested: stale means new runs landed but `pnpm re:backfill`
+        # never re-scored them — which is exactly what happened on 2026-08-20, when
+        # five ingested runs sat unscored and the load curve stayed wrong. WARN
+        # only: with no new runs there is legitimately nothing to recompute.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 168, period: hour }
+        columns:
+          - name: run_id
+            tests: [not_null, unique]
+          - name: score
+            tests: [not_null]
+      - name: ride_relative_effort
+        description: >
+          Per-ride Relative Effort (Banister TRIMP), sibling to
+          run_relative_effort — derived by lib/relativeEffort.ts from the
+          ride_streams HR series (or avg HR). Grain: one row per ride.
+        # Same reasoning as run_relative_effort: stale means new rides landed
+        # but `pnpm re:backfill-rides` never re-scored them. WARN only: rides
+        # are roughly weekly-to-biweekly (see the `rides` source above), so
+        # there is legitimately nothing to recompute most days.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 336, period: hour }
+        columns:
+          - name: ride_id
+            tests: [not_null, unique]
+          - name: score
+            tests: [not_null]
+      - name: ride_power_metrics
+        description: >
+          Per-ride NP / IF / TSS (MZY-269) computed by lib/power.ts from
+          DEVICE-measured ride_streams watts only (never estimated). ftp_w is
+          the FTP used; null ftp_w means null IF/TSS. Grain: one row per ride
+          with a power-meter stream. Never feeds training load.
+        # WARN only, and very generously: no power meter exists yet, so this
+        # table is legitimately empty / unchanging for long stretches.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 720, period: hour }
+        columns:
+          - name: ride_id
+            tests: [not_null, unique]
+          - name: np_w
+            tests: [not_null]
+      - name: ride_power_curve
+        description: >
+          Per-ride mean-maximal power (MZY-269): best average watts for each
+          standard duration, from DEVICE-measured watts only. Grain: one row
+          per (ride, duration).
+        columns:
+          - name: ride_id
+            tests: [not_null]
+          - name: duration_s
+            tests: [not_null]
+          - name: watts
+            tests: [not_null]
+      - name: run_fueling_balance
+        description: >
+          Per-run fueling & hydration balance (lib/fuelingModel.ts, MZY-64):
+          estimated sweat/sodium loss vs. logged intake, carbs/h vs. guideline,
+          >2% dehydration + under-fueling flags. Grain: one row per run ≥ 60
+          min or with logged intake.
+        # Same reasoning as run_relative_effort: stale means new runs landed but
+        # `pnpm fueling:backfill` never re-modelled them. WARN only.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 336, period: hour }
+        columns:
+          - name: run_id
+            tests: [not_null, unique]
+          - name: est_sweat_loss_l
+            tests: [not_null]
+      - name: ride_fueling_balance
+        description: >
+          Per-ride fueling & hydration balance, sibling to run_fueling_balance
+          (same model, same shape). Grain: one row per ride ≥ 60 min or with
+          logged intake.
+        # Rides are weekly-to-biweekly (see `rides` above) — WARN only.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 336, period: hour }
+        columns:
+          - name: ride_id
+            tests: [not_null, unique]
+          - name: est_sweat_loss_l
+            tests: [not_null]
+      - name: training_load_daily
+        description: >
+          Daily Banister CTL/ATL/TSB (Fitness/Fatigue/Form), derived by
+          lib/trainingLoad.ts from the daily sum of run_relative_effort and
+          ride_relative_effort over a continuous date spine. Grain: one row
+          per calendar day.
+        # Same reasoning as run_relative_effort: this is the mart that goes wrong
+        # QUIETLY — a stale CTL/ATL/TSB still renders, it just lies.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 168, period: hour }
+        columns:
+          - name: date
+            tests: [not_null, unique]
+          - name: daily_load
+            tests: [not_null]
+          - name: ctl
+            tests: [not_null]
+          - name: atl
+            tests: [not_null]
+          - name: tsb
+            tests: [not_null]
+      - name: planned_sessions
+        description: >
+          The training program's planned run/lift/rest sessions, seeded from
+          docs/training-program.local.md (lib/training/trainingProgram.ts). Dims for the
+          weekly run-compliance mart: target_distance_km (a run day's planned
+          distance) and target_hr_cap (the easy-day HR ceiling, set only on
+          planned sessions the program caps).
+        columns:
+          - name: id
+            tests: [not_null, unique]
+      - name: race_predictions
+        description: >
+          Predicted race times (Riegel self-calibrated + Daniels VDOT) from the
+          athlete's best-effort pairs, derived by lib/racePrediction.ts. Net-new
+          (Strava has no equivalent). Grain: one row per target distance.
+        columns:
+          - name: label
+            tests: [not_null, unique]
+          - name: distance_m
+            tests: [not_null]
+          - name: predicted_s
+            tests: [not_null]

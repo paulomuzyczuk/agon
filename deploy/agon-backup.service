@@ -1,0 +1,35 @@
+# Agon Postgres backup (MZY-209), run daily by agon-backup.timer.
+#
+# Runs `pnpm db:backup`: pg_dump of the agon DB via `docker exec` into
+# AGON_BACKUP_DIR, verifies the archive (pg_restore -l), then rotates old
+# dumps (keep 14 daily + 8 weekly by default). Exits non-zero and messages
+# Telegram (when TELEGRAM_OWNER_CHAT_ID is set) on any failure.
+#
+# Why this exists: on 2026-09-08 the agon_agon_pgdata volume was deleted and
+# every athlete-authored table was lost — there was no backup (MZY-113).
+#
+# Install alongside the timer (both files):
+#   sudo cp deploy/agon-backup.service deploy/agon-backup.timer /etc/systemd/system/
+#   sudoedit /etc/systemd/system/agon-backup.service   # set the real paths
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now agon-backup.timer
+#   sudo systemctl start agon-backup.service           # run once, now
+#   journalctl -u agon-backup -n 20
+#
+# Put AGON_BACKUP_DIR on a DIFFERENT disk from the Docker volume (ideally one
+# that is itself synced off the machine) — a backup on the same disk as the
+# data survives `docker compose down -v`, not a dead disk. Restore procedure
+# and the restore drill: docs/self-hosting/backups.md.
+
+[Unit]
+Description=Agon Postgres backup (pg_dump + rotation)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=agon
+WorkingDirectory=/opt/agon
+EnvironmentFile=-/opt/agon/.env.local
+ExecStart=/usr/bin/env pnpm db:backup
+TimeoutStartSec=900

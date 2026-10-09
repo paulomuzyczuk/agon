@@ -1,0 +1,19 @@
+# Human-written spec and handoff notes — prose, not code; skip Prettier.
+docs/
+CLAUDE.md
+
+# Dependencies and build output
+node_modules/
+.next/
+coverage/
+
+# SQL migrations are formatted by hand for reviewability
+migrations/*.sql
+
+# dbt build artifacts
+analytics/target/
+analytics/dbt_packages/
+analytics/logs/
+
+# Capacitor Android project (MZY-274) — generated Gradle/Java/XML, not ours to format
+android/

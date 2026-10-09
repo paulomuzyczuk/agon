@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agon": {
+      "command": "pnpm",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
