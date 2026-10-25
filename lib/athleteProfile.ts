@@ -76,6 +76,15 @@ const AthleteProfileSchema = z.object({
    * (services/googleCalendar/routeForSession.ts). Optional.
    */
   timeTrialVia: z.array(z.string().min(1)).max(5).optional(),
+  /**
+   * Time trials run as a straight out-and-back instead of a loop: trial
+   * distance in km (as a string key, e.g. "5") → the place to turn around at.
+   * The turnaround is set half the distance out, so the trial is exactly its
+   * distance. Optional.
+   */
+  timeTrialOutAndBack: z
+    .record(z.string().regex(/^\d+(\.\d+)?$/), z.string().min(1))
+    .optional(),
   commute: z
     .object({
       weekdays: z.array(z.number().int().min(1).max(7)).min(1),

@@ -43,6 +43,7 @@ function deps(over: Partial<RouteForSessionDeps>): RouteForSessionDeps {
       throw new Error('countCrossings should not be called');
     },
     timeTrialVias: () => [],
+    timeTrialTurnaround: () => null,
     ...over,
   };
 }
@@ -623,6 +624,137 @@ describe('ensureRoutesForSession', () => {
       );
       expect(infos.map((i) => i.mapsUrl)).toEqual(['tt-2']);
       expect(infos[0]!.label).toMatch(/run 100 m past the finish/);
+    });
+
+    describe('with a configured out-and-back turnaround', () => {
+      // A straight 2.6 km street north from the origin: [lng, lat] points.
+      const street = {
+        seed: 0,
+        distanceM: 2600,
+        elevationGainM: 5,
+        elevationGainPerKmM: 2,
+        distanceErrorM: 0,
+        coordinates: [
+          [0, 0],
+          [0, 0.0117],
+          [0, 0.0234],
+        ] as number[][],
+        provider: 'ors',
+      };
+      function oabDeps(calls: SuggestRoutesInput[], over = {}) {
+        return ttDeps({}, calls, {
+          timeTrialTurnaround: (km) =>
+            km === 5 ? 'Müllerstraße, Wedding' : null,
+          generate: async (input) => {
+            calls.push(input);
+            return {
+              start: { lat: 0, lng: 0, label: 'home' },
+              targetKm: input.targetKm,
+              profile: 'foot-walking',
+              candidates: [street],
+            };
+          },
+          ...over,
+        });
+      }
+
+      it('routes home to the place one way and saves a 5.0 km out-and-back', async () => {
+        const calls: SuggestRoutesInput[] = [];
+        let saved: { distanceM: number; vias?: unknown } | undefined;
+        const d = oabDeps(calls, {
+          save: async (result: {
+            candidates: { distanceM: number; vias?: unknown }[];
+          }) => {
+            saved = result.candidates[0];
+            return {
+              batchId: 'b',
+              suggestions: [
+                {
+                  id: 's',
+                  batchId: 'b',
+                  rank: 1,
+                  seed: 0,
+                  distanceM: 5000,
+                  elevationGainM: null,
+                  provider: 'ors',
+                  mapsUrl: 'oab',
+                },
+              ],
+            } as never;
+          },
+        });
+        const infos = await ensureRoutesForSession(tt(), d);
+        expect(calls).toHaveLength(1);
+        expect(calls[0]!.through).toEqual([
+          { place: 'Müllerstraße, Wedding' },
+        ]);
+        expect(calls[0]!.finishNear).toEqual({
+          place: 'Müllerstraße, Wedding',
+        });
+        expect(saved!.distanceM).toBe(5000);
+        expect(saved!.vias).toHaveLength(1);
+        expect(infos[0]!.label).toMatch(
+          /5\.0 km out-and-back — Müllerstraße and back/,
+        );
+      });
+
+      it('fails loudly when the place is too near for the distance', async () => {
+        const calls: SuggestRoutesInput[] = [];
+        const d = oabDeps(calls, {
+          generate: async (input: SuggestRoutesInput) => ({
+            start: { lat: 0, lng: 0, label: 'home' },
+            targetKm: input.targetKm,
+            profile: 'foot-walking' as const,
+            candidates: [{ ...street, distanceM: 1500 }],
+          }),
+        });
+        await expect(ensureRoutesForSession(tt(), d)).rejects.toThrow(
+          /1\.5 km from home, too near for an out-and-back of 5 km/,
+        );
+      });
+
+      it('keeps an attached out-and-back and replaces an attached loop', async () => {
+        const attached = (viaLabel: string) =>
+          ({
+            id: 'r',
+            mapsUrl: 'kept',
+            distanceM: 5000,
+            elevationGainM: null,
+            direction: null,
+            viaLabel,
+            requestedKm: 5,
+          }) as never;
+        const calls: SuggestRoutesInput[] = [];
+        const kept = await ensureRoutesForSession(
+          tt(),
+          oabDeps(calls, {
+            getAttached: async () => [
+              attached('Route 1 · 5.0 km out-and-back — X and back'),
+            ],
+          }),
+        );
+        expect(calls).toEqual([]);
+        expect(kept.map((i) => i.mapsUrl)).toEqual(['kept']);
+
+        const replaced = await ensureRoutesForSession(
+          tt(),
+          oabDeps(calls, {
+            getAttached: async () => [attached('Route 1 · 5.0 km — Park')],
+          }),
+        );
+        expect(replaced[0]!.label).toMatch(/out-and-back/);
+        expect(calls).toHaveLength(1);
+      });
+
+      it('leaves other trial distances on loops', async () => {
+        const calls: SuggestRoutesInput[] = [];
+        const d = oabDeps(calls);
+        await ensureRoutesForSession(
+          { ...tt(), targetDistanceKm: 10 },
+          d,
+        ).catch(() => {});
+        expect(calls[0]!.finishNear).toBeUndefined();
+      });
     });
 
     it('reuses the one attached route while it fits the target', async () => {

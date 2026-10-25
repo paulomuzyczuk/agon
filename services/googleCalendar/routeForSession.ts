@@ -6,6 +6,7 @@ import {
 import { homeLocationOrNull, workLocationOrNull } from '../routing/config';
 import { commuteLegOf, type CommuteLeg } from '../../lib/training/commutes';
 import { countCrossings } from '../routing/crossings';
+import { outAndBackFrom } from '../routing/outAndBack';
 import {
   pickTimeTrialRoute,
   timeTrialLabelSuffix,
@@ -101,6 +102,8 @@ export interface RouteForSessionDeps {
   countCrossings: typeof countCrossings;
   /** Places a time-trial loop may route through (athlete profile). */
   timeTrialVias: () => string[];
+  /** Where a time trial of this distance turns around, or null for a loop. */
+  timeTrialTurnaround: (targetKm: number) => string | null;
 }
 
 const defaultDeps: RouteForSessionDeps = {
@@ -114,6 +117,8 @@ const defaultDeps: RouteForSessionDeps = {
   work: workLocationOrNull,
   countCrossings,
   timeTrialVias: () => getAthleteProfile().timeTrialVia ?? [],
+  timeTrialTurnaround: (targetKm) =>
+    getAthleteProfile().timeTrialOutAndBack?.[String(targetKm)] ?? null,
 };
 
 /**
@@ -253,6 +258,10 @@ async function ensureTimeTrialRoute(
   targetKm: number,
   deps: RouteForSessionDeps,
 ): Promise<EventRouteInfo[]> {
+  const turnaround = deps.timeTrialTurnaround(targetKm);
+  if (turnaround)
+    return ensureOutAndBackRoute(session, targetKm, turnaround, deps);
+
   // A route picked before the distance gate existed may be far off the target
   // (1.9 km for a 10 km trial, 2026-10-16); treat it as stale so it's replaced.
   const existing = await deps.getAttached(session.id, 'auto');
@@ -310,6 +319,67 @@ async function ensureTimeTrialRoute(
   return persistAndAttach(
     session,
     { ...best.result, candidates: [c] },
+    [label],
+    deps,
+  );
+}
+
+const OUT_AND_BACK_MARK = 'out-and-back';
+
+/**
+ * A time trial as a straight out-and-back from home to `place` and back, with
+ * the turnaround set half the trial distance out (athlete's request,
+ * 2026-10-22: no warm-up or cool-down in the course, just the trial). A loop
+ * attached earlier is replaced; one already out-and-back for this target stays.
+ */
+async function ensureOutAndBackRoute(
+  session: CalendarSyncRow,
+  targetKm: number,
+  place: string,
+  deps: RouteForSessionDeps,
+): Promise<EventRouteInfo[]> {
+  const existing = await deps.getAttached(session.id, 'auto');
+  if (
+    existing.length === 1 &&
+    fitsTarget(existing, targetKm) &&
+    existing[0]!.viaLabel?.includes(OUT_AND_BACK_MARK)
+  ) {
+    return existing.map(attachedRouteToEventInfo);
+  }
+
+  // Home → the place, one way. A target below the distance returns that route
+  // alone (the same trick as the commute spine); outAndBackFrom() then cuts it
+  // at the half-way mark.
+  const result = await deps.generate({
+    targetKm: 0.1,
+    through: [{ place }],
+    finishNear: { place },
+    keep: 1,
+  });
+  const spine = result.candidates[0];
+  if (!spine) return [];
+  if (spine.distanceM * 2 < targetKm * 1000 * 0.9) {
+    throw new Error(
+      `timeTrialOutAndBack: "${place}" is ${(spine.distanceM / 1000).toFixed(1)} km from home, ` +
+        `too near for an out-and-back of ${targetKm} km`,
+    );
+  }
+
+  const trial = outAndBackFrom(spine, targetKm * 1000);
+  const { turnaround, ...rest } = trial;
+  const candidate: RankedCandidate = {
+    ...rest,
+    distanceErrorM: Math.abs(trial.distanceM - targetKm * 1000),
+    elevationGainPerKmM: null,
+    vias: [turnaround],
+  };
+  await deps.clearAttached(session.id);
+  const label =
+    `Route 1 · ${(candidate.distanceM / 1000).toFixed(1)} km ${OUT_AND_BACK_MARK} ` +
+    `— ${place.split(',')[0]} and back`;
+  return persistAndAttach(
+    session,
+    { ...result, candidates: [candidate], oneWay: false },
     [label],
     deps,
   );

@@ -13,6 +13,7 @@
   "startingBodyFatPct": 20,
   "vo2maxMeasured": 50,
   "timeTrialVia": ["Central Park"],
+  "timeTrialOutAndBack": { "5": "Central Park Great Lawn" },
   "commute": { "weekdays": [2, 4], "from": "2026-01-06", "until": "2026-06-26" },
   "ftpHistory": [
     { "watts": 220, "date": "2026-01-05" },
