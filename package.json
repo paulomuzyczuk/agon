@@ -60,6 +60,7 @@
     "power:backfill-rides": "tsx scripts/backfill-ride-power.ts",
     "power:backfill-metrics": "tsx scripts/backfill-ride-power-metrics.ts",
     "ride:add": "tsx scripts/add-manual-ride.ts",
+    "ride:fill-hr": "tsx scripts/backfill-ride-hr-google-health.ts",
     "be:backfill": "tsx scripts/backfill-best-efforts.ts",
     "dm:backfill": "tsx scripts/backfill-derived-moving.ts",
     "elevation:backfill": "tsx scripts/backfill-elevation-gain.ts",
