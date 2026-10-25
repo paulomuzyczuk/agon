@@ -190,6 +190,9 @@ stream of runs/rides from the last 30 days:
 - The tail sits inside 100 m of home (`homeLocationOrNull()`), or else inside
   50 m of the final point (confidence "away").
 - It lasts ≥ 60 s at ≤ 0.8 m/s mean, and covers ≥ 10 m or has ≥ 10 s moving.
+- Rides also qualify with a *stationary* tail (≤ 5 m) of ≥ 20 s measured from
+  the cut (`minIdleTailS`; the 15 s speed window makes a 31 s stop measure
+  ~25 s). Runs keep 60 s — 30 s added a run false positive in the backtest.
 - The "stopped" speed that places the cut is 1 m/s for runs and 2.5 m/s for
   rides (walking the bike in counts as part of the tail).
 

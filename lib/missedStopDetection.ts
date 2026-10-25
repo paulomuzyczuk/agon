@@ -40,6 +40,14 @@ export interface DetectionParams {
   speedWindowS: number;
   /** Shortest tail worth flagging (s). */
   minTailS: number;
+  /**
+   * Shortest tail worth flagging when it is also stationary (covers at most
+   * `idleTailMaxM`). Nothing in a standing tail can be real activity, so it
+   * qualifies sooner than `minTailS`; set equal to `minTailS` to switch off.
+   */
+  minIdleTailS: number;
+  /** Distance (m) up to which a tail counts as stationary (GPS jitter). */
+  idleTailMaxM: number;
   /** Mean speed over the flagged tail must stay below this (m/s). */
   maxTailSpeedMps: number;
   /**
@@ -57,6 +65,8 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   slowSpeedMps: 1.0,
   speedWindowS: 15,
   minTailS: 60,
+  minIdleTailS: 60,
+  idleTailMaxM: 5,
   maxTailSpeedMps: 0.8,
   minTailDistanceM: 10,
   minTailMovingS: 10,
@@ -72,7 +82,12 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
 export const DETECTION_PARAMS_BY_KIND: Record<'run' | 'ride', DetectionParams> =
   {
     run: DEFAULT_DETECTION_PARAMS,
-    ride: { ...DEFAULT_DETECTION_PARAMS, slowSpeedMps: 2.5 },
+    // minIdleTailS 20: a standing 31 s tail on the 2026-10-18 restaurant ride
+    // went unflagged at 60 s. The 15 s speed window makes the cut land a few
+    // seconds after the athlete actually stopped, so a 31 s stop measures
+    // ~25 s here; 30 would still miss it. Runs keep 60 — the backtest at 30 s
+    // added a false positive on a run (2026-06-07) and none on rides.
+    ride: { ...DEFAULT_DETECTION_PARAMS, slowSpeedMps: 2.5, minIdleTailS: 20 },
   };
 
 export interface MissedStopSuggestion {
@@ -165,8 +180,11 @@ function detectAt(
     if (dt > 0 && (cum[i]! - cum[lo]!) / dt > p.slowSpeedMps) cut = i;
   }
   const tailS = t[n - 1]! - t[cut]!;
-  if (tailS < p.minTailS) return null;
   const tailM = cum[n - 1]! - cum[cut]!;
+  const idle = tailM <= p.idleTailMaxM;
+  if (tailS < (idle ? Math.min(p.minTailS, p.minIdleTailS) : p.minTailS)) {
+    return null;
+  }
   if (tailM / tailS > p.maxTailSpeedMps) return null;
 
   let movingS = 0;

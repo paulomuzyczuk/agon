@@ -164,4 +164,48 @@ describe('detectMissedStop', () => {
       detectMissedStop(s, HOME, { ...DEFAULT_DETECTION_PARAMS, minTailS: 300 }),
     ).toBeNull();
   });
+
+  describe('short stationary tails (rides)', () => {
+    const RIDE = DETECTION_PARAMS_BY_KIND.ride;
+    // Rides at 3 m/s to a spot short of home (away), then stands still.
+    // flags=false: the live recorder stores no moving flags, so every tail
+    // second counts as moving and the impact gate passes.
+    const stood = (idleS: number, flags = false) =>
+      track(
+        3000,
+        [
+          { secs: 545, v: 3 },
+          { secs: idleS, v: 0, moving: false },
+        ],
+        flags,
+      );
+
+    it('flags a 31 s standing tail on a ride, but not on a run', () => {
+      const hit = detectMissedStop(stood(31), HOME, RIDE);
+      expect(hit?.confidence).toBe('away');
+      expect(hit?.trimS).toBeGreaterThanOrEqual(20);
+      expect(hit?.trimS).toBeLessThan(60);
+      expect(hit?.distanceKm).toBe(0);
+      expect(
+        detectMissedStop(stood(31), HOME, DETECTION_PARAMS_BY_KIND.run),
+      ).toBeNull();
+    });
+
+    it('does not flag a brief stop (15 s)', () => {
+      expect(detectMissedStop(stood(15), HOME, RIDE)).toBeNull();
+    });
+
+    it('does not shorten the bar for a tail that is still moving', () => {
+      // 25 s at 0.5 m/s = 12.5 m: slow, but not stationary
+      const s = track(3000, [
+        { secs: 545, v: 3 },
+        { secs: 25, v: 0.5, moving: true },
+      ]);
+      expect(detectMissedStop(s, HOME, RIDE)).toBeNull();
+    });
+
+    it('leaves the Strava-flagged standing tail alone (no totals to fix)', () => {
+      expect(detectMissedStop(stood(31, true), HOME, RIDE)).toBeNull();
+    });
+  });
 });
