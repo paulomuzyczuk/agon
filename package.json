@@ -18,6 +18,7 @@
     "test:integration": "jest --config jest.integration.config.ts",
     "budget:files": "node scripts/check-file-size-budget.mjs",
     "check:env-keys": "tsx scripts/checkEnvKeys.ts",
+    "check:examples": "tsx scripts/checkExampleFiles.ts",
     "android:sync": "cap sync android",
     "android:build": "tsx scripts/build-android.ts",
     "bootstrap": "tsx scripts/bootstrap.ts",

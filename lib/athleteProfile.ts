@@ -20,7 +20,7 @@ import { z } from 'zod';
 // explicit "copy the .example.json and fill in real values" error, never a
 // silent guess (same rationale as the nutrition-goals loader).
 
-const AthleteProfileSchema = z.object({
+export const AthleteProfileSchema = z.object({
   /** IANA time zone (e.g. "Europe/Berlin"). Used to resolve "today"/local dates. */
   timeZone: z.string().min(1),
   /** Program week 1 start date (a Monday), YYYY-MM-DD. */
