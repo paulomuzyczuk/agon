@@ -56,6 +56,25 @@ describe('computeSpeedSummary', () => {
       maxSpeedKmh: null,
     });
   });
+
+  it('averages only the moving samples, so recorded stops do not lower it', () => {
+    const moving = [{ speedKmh: 20 }, { speedKmh: 30 }];
+    const withStops = [
+      { speedKmh: 0 },
+      ...moving,
+      { speedKmh: 0 },
+      { speedKmh: 0 },
+    ];
+    expect(computeSpeedSummary(withStops)).toEqual(computeSpeedSummary(moving));
+    expect(computeSpeedSummary(withStops).avgSpeedKmh).toBe(25);
+  });
+
+  it('reports 0, not null, for a ride the speed sensor saw standing still', () => {
+    expect(computeSpeedSummary([{ speedKmh: 0 }, { speedKmh: 0 }])).toEqual({
+      avgSpeedKmh: 0,
+      maxSpeedKmh: 0,
+    });
+  });
 });
 
 describe('toRideStreamData', () => {
@@ -94,6 +113,25 @@ describe('toRideStreamData', () => {
       startedAtMs,
     );
     expect(result.cadence).toEqual([1, 88]);
+  });
+
+  it('keeps a recorded stop as 0, not null (0 km/h / 0 rpm are real readings)', () => {
+    const result = toRideStreamData(
+      {
+        hr: [],
+        speed: [
+          { tMs: 1_000_000, speedKmh: 18 },
+          { tMs: 1_001_000, speedKmh: 0 },
+        ],
+        cadence: [
+          { tMs: 1_000_000, rpm: 70 },
+          { tMs: 1_001_000, rpm: 0 },
+        ],
+      },
+      startedAtMs,
+    );
+    expect(result.velocitySmoothMps).toEqual([5, 0]);
+    expect(result.cadence).toEqual([70, 0]);
   });
 
   it('omits a metric entirely when its sensor was never connected', () => {

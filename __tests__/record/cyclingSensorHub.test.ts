@@ -211,3 +211,109 @@ describe('cyclingSensorHub', () => {
     expect(transport.requested).toEqual([]);
   });
 });
+
+// A standing wheel / still crank keeps notifying with an UNCHANGED event time.
+// That used to leave no sample (stored as null, indistinguishable from a
+// sensor dropout); now it is a real 0 once the timeout passes. The test clock
+// advances 1 s per frame, so STOPPED_AFTER_MS.wheel (3 s) = 3 repeated frames
+// and .crank (4 s) = 4.
+describe('cyclingSensorHub — a standing sensor reads 0', () => {
+  async function riding() {
+    const ctx = setup();
+    await ctx.pair(SPEED);
+    ctx.record('rec-1');
+    ctx.transport.frame(SPEED.id, wheel(100, 0)); // baseline
+    ctx.transport.frame(SPEED.id, wheel(102, 1024)); // 2 revs in 1 s
+    return ctx;
+  }
+
+  it('records 0 km/h once the wheel event time has not moved for 3 s', async () => {
+    const { transport, written, sensor } = await riding();
+    expect(written.speed).toHaveLength(1);
+
+    transport.frame(SPEED.id, wheel(102, 1024)); // 1 s
+    transport.frame(SPEED.id, wheel(102, 1024)); // 2 s
+    expect(written.speed).toHaveLength(1); // a slow turn can repeat — not yet
+
+    transport.frame(SPEED.id, wheel(102, 1024)); // 3 s
+    expect(written.speed).toHaveLength(2);
+    expect(written.speed[1]).toMatchObject({
+      speedKmh: 0,
+      wheelRevs: 102, // the counter did not move: wheel distance is unchanged
+      deviceId: SPEED.id,
+    });
+    expect(sensor(SPEED.id)?.value).toBe(0);
+  });
+
+  it('keeps recording 0 while standing and restarts the timeout on a new event', async () => {
+    const { transport, written } = await riding();
+    for (let i = 0; i < 4; i++) transport.frame(SPEED.id, wheel(102, 1024));
+    expect(written.speed.map((s) => s.speedKmh)).toEqual([
+      expect.any(Number),
+      0,
+      0,
+    ]);
+
+    transport.frame(SPEED.id, wheel(104, 2048)); // rolling again
+    expect(written.speed.at(-1)?.speedKmh).toBeGreaterThan(0);
+
+    const before = written.speed.length;
+    transport.frame(SPEED.id, wheel(104, 2048));
+    transport.frame(SPEED.id, wheel(104, 2048));
+    expect(written.speed).toHaveLength(before); // the 3 s runs from the new event
+  });
+
+  it('reads 0 for a bike that never started moving after pairing', async () => {
+    const { transport, pair, written, record } = setup();
+    await pair(SPEED);
+    record('rec-1');
+    transport.frame(SPEED.id, wheel(100, 0)); // baseline only
+    transport.frame(SPEED.id, wheel(100, 0));
+    transport.frame(SPEED.id, wheel(100, 0));
+    expect(written.speed).toHaveLength(0);
+    transport.frame(SPEED.id, wheel(100, 0)); // 3 s after the baseline
+    expect(written.speed).toEqual([expect.objectContaining({ speedKmh: 0 })]);
+  });
+
+  it('shows 0 on screen while not recording, and writes nothing', async () => {
+    const { transport, pair, sensor, written } = setup();
+    await pair(SPEED);
+    transport.frame(SPEED.id, wheel(100, 0));
+    transport.frame(SPEED.id, wheel(102, 1024));
+    for (let i = 0; i < 3; i++) transport.frame(SPEED.id, wheel(102, 1024));
+    expect(sensor(SPEED.id)?.value).toBe(0);
+    expect(written.speed).toHaveLength(0);
+  });
+
+  it('records 0 rpm once the crank has been still for 4 s (coasting)', async () => {
+    const { transport, pair, written, record, sensor } = setup();
+    await pair(CAD);
+    record('rec-1');
+    transport.frame(CAD.id, crank(10, 0)); // baseline
+    transport.frame(CAD.id, crank(11, 1024)); // 60 rpm
+    expect(written.cadence.map((s) => s.rpm)).toEqual([60]);
+
+    for (let i = 0; i < 3; i++) transport.frame(CAD.id, crank(11, 1024));
+    expect(written.cadence).toHaveLength(1); // 3 s: a slow turn is still possible
+
+    transport.frame(CAD.id, crank(11, 1024)); // 4 s
+    expect(written.cadence.map((s) => s.rpm)).toEqual([60, 0]);
+    expect(sensor(CAD.id)?.value).toBe(0);
+  });
+
+  it("records 0 cadence from a power meter's still crank, for the primary cadence source", async () => {
+    const { transport, pair, written, record } = setup();
+    await pair(PM, 'power');
+    record('rec-1');
+    transport.frame(PM.id, power(200, 10, 0));
+    transport.frame(PM.id, power(200, 11, 1024));
+    for (let i = 0; i < 4; i++) transport.frame(PM.id, power(0, 11, 1024));
+    expect(written.cadence.map((s) => s.rpm)).toEqual([60, 0]);
+  });
+
+  it('does not invent a reading when a sensor drops out (no frames, no 0)', async () => {
+    const { transport, written } = await riding();
+    transport.drop(SPEED.id);
+    expect(written.speed).toHaveLength(1); // the dropout stays a gap — null in the stream
+  });
+});

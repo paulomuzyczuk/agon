@@ -83,6 +83,29 @@ interface CyclingSensorConn {
     cumulativeCrankRevs: number;
     lastCrankEventTime1024: number;
   } | null;
+  /** Client time (ms) of the last NEW wheel / crank event — or of the first
+   *  frame, so a bike that starts out standing still also reads 0. */
+  lastWheelEventAt: number | null;
+  lastCrankEventAt: number | null;
+}
+
+/**
+ * How long a sensor may repeat an unchanged event time before it counts as
+ * stopped (speed / cadence 0). A repeat alone cannot mean "stopped": at a slow
+ * pace one wheel or crank turn takes longer than the ~1 s between frames, so
+ * the event time legitimately repeats while still moving. Below ~2.7 km/h
+ * (wheel) or ~15 rpm (crank) a turn outlasts the timeout and the reading
+ * flickers to 0 between turns — acceptable for "stopped".
+ */
+export const STOPPED_AFTER_MS = { wheel: 3000, crank: 4000 } as const;
+
+/** A repeated event time is "no new sample" until the timeout, then 0. */
+function stoppedReading(
+  now: number,
+  lastEventAt: number | null,
+  afterMs: number,
+): number | null {
+  return lastEventAt !== null && now - lastEventAt >= afterMs ? 0 : null;
 }
 
 const KIND: Record<
@@ -158,11 +181,17 @@ export function createCyclingSensorHub(
     };
   }
 
-  /** Cadence from a crank reading (CSC or power meter), updating the conn's previous one. */
+  /**
+   * Cadence from a crank reading (CSC or power meter), updating the conn's
+   * previous one. 0 once the crank has been still for STOPPED_AFTER_MS
+   * (coasting or stopped), so that is not stored as a gap that looks like a
+   * sensor dropout; null while a repeat may just be a slow turn.
+   */
   function crankRpm(
     conn: CyclingSensorConn,
     revs: number | null,
     time1024: number | null,
+    t: number,
   ): number | null {
     if (revs === null || time1024 === null) return null;
     const curr = {
@@ -171,7 +200,15 @@ export function createCyclingSensorHub(
     };
     const prev = conn.prevCrank;
     conn.prevCrank = curr;
-    return prev ? computeCadenceRpm(prev, curr) : null;
+    if (!prev) {
+      conn.lastCrankEventAt = t;
+      return null;
+    }
+    const rpm = computeCadenceRpm(prev, curr);
+    if (rpm !== null) conn.lastCrankEventAt = t;
+    return (
+      rpm ?? stoppedReading(t, conn.lastCrankEventAt, STOPPED_AFTER_MS.crank)
+    );
   }
 
   function onCscFrame(conn: CyclingSensorConn, value: DataView) {
@@ -193,10 +230,16 @@ export function createCyclingSensorHub(
       conn.prevWheel = curr;
       conn.role = 'speed';
       const wheelCircumferenceMm = MERIDA_SILEX_400.wheelCircumferenceMm;
-      const speedKmh =
+      const moving =
         prev && wheelCircumferenceMm != null
           ? computeWheelSpeedKmh(prev, curr, wheelCircumferenceMm)
           : null;
+      if (!prev || moving !== null) conn.lastWheelEventAt = t;
+      const speedKmh =
+        moving ??
+        (prev
+          ? stoppedReading(t, conn.lastWheelEventAt, STOPPED_AFTER_MS.wheel)
+          : null);
       patch(id, {
         role: 'speed',
         status: 'connected',
@@ -222,6 +265,7 @@ export function createCyclingSensorHub(
         conn,
         reading.cumulativeCrankRevs,
         reading.lastCrankEventTime1024,
+        t,
       );
       patch(id, {
         role: 'cadence',
@@ -247,6 +291,7 @@ export function createCyclingSensorHub(
       conn,
       reading.cumulativeCrankRevs,
       reading.lastCrankEventTime1024,
+      t,
     );
     if (rpm !== null) conn.reportsCadence = true;
     patch(id, {
@@ -293,6 +338,8 @@ export function createCyclingSensorHub(
       reportsCadence: false,
       prevWheel: null,
       prevCrank: null,
+      lastWheelEventAt: null,
+      lastCrankEventAt: null,
     };
     try {
       await transport.connect(device, () => {

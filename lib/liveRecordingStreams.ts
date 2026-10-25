@@ -194,19 +194,29 @@ export interface SpeedSummary {
   maxSpeedKmh: number | null;
 }
 
-/** avg/max km/h across a ride's speed samples — null (not 0) when there's nothing to summarize. */
+/**
+ * avg/max km/h across a ride's speed samples — null (not 0) when there's
+ * nothing to summarize. The average is the MOVING average: stopped (0) samples
+ * are left out. A stop used to leave no sample at all; now the sensors record
+ * 0 for a standing bike, and excluding those keeps the saved average what it
+ * was. A ride that never moved averages 0.
+ */
 export function computeSpeedSummary(
   samples: Array<{ speedKmh: number }>,
 ): SpeedSummary {
   if (samples.length === 0) return { avgSpeedKmh: null, maxSpeedKmh: null };
   let sum = 0;
+  let moving = 0;
   let max = -Infinity;
   for (const s of samples) {
-    sum += s.speedKmh;
+    if (s.speedKmh > 0) {
+      sum += s.speedKmh;
+      moving += 1;
+    }
     if (s.speedKmh > max) max = s.speedKmh;
   }
   return {
-    avgSpeedKmh: Math.round((sum / samples.length) * 100) / 100,
+    avgSpeedKmh: moving === 0 ? 0 : Math.round((sum / moving) * 100) / 100,
     maxSpeedKmh: Math.round(max * 100) / 100,
   };
 }

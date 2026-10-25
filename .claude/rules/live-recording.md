@@ -93,6 +93,17 @@ every delta computation treats a zero elapsed time as "no new sample," not a
 division by zero, and both the uint16 event-time counter and the uint32
 wheel-rev / uint16 crank-rev counters roll over and are handled accordingly.
 
+**Stopped = 0, dropout = null.** A repeated event time is "no new sample" only
+until `STOPPED_AFTER_MS` (`cyclingSensorHub.ts`: wheel 3 s, crank 4 s) has
+passed since the last NEW event; after that the hub records 0 km/h / 0 rpm
+(standing, or coasting). A repeat alone can't mean "stopped" — below ~2.7 km/h
+or ~15 rpm one turn outlasts a second, so the timeout, not the first repeat,
+decides. Frames that stop arriving (a drop) record nothing: that stays `null`
+in `ride_streams` and means "sensor dropped out". (Found on the first real
+ride, 2026-10-18: every stop was stored null, so coasting looked like a
+dropout.) `computeSpeedSummary` averages the MOVING samples only, so the
+stored zeros leave `rides.avg_speed_kmh` what it was.
+
 **Wheel circumference** lives on `lib/gear.ts`'s `GearSpec` (new
 `wheelCircumferenceMm` field, bike-only) rather than
 `config/athlete-profile.local.json`: the athlete profile module holds scalar
