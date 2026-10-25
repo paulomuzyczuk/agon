@@ -6,6 +6,10 @@ import type { CrossingCounts } from './crossings';
 // then fewest plain crossings; then a loop that covers the whole distance
 // (a short loop leaves the last metres off-route); then distance accuracy;
 // then the flattest. Pure.
+//
+// Only loops within DISTANCE_TOLERANCE of the target compete. ORS round_trip
+// occasionally returns a degenerate loop (a 1.9 km one for a 10 km trial,
+// 2026-10-16), and a loop a fifth the length trivially has fewer lights.
 
 export interface ScoredCandidate {
   candidate: RankedCandidate;
@@ -17,6 +21,17 @@ export interface ScoredCandidate {
 const UNKNOWN = Number.POSITIVE_INFINITY;
 // Engines land loops within a few percent; under 1% short still counts as full.
 const FULL_DISTANCE_FRACTION = 0.99;
+// Wider than an engine's usual few-percent miss, so a fair loop is never lost.
+const DISTANCE_TOLERANCE = 0.1;
+
+/** True when a loop of `distanceM` is close enough to the trial distance. */
+export function withinTimeTrialDistance(
+  distanceM: number,
+  targetKm: number,
+): boolean {
+  const targetM = targetKm * 1000;
+  return Math.abs(distanceM - targetM) <= targetM * DISTANCE_TOLERANCE;
+}
 
 function sortKey(s: ScoredCandidate, targetM: number): number[] {
   const c = s.candidate;
@@ -37,14 +52,31 @@ function compareKeys(a: number[], b: number[]): number {
   return 0;
 }
 
-/** The best time-trial route, or null for an empty pool. Ties keep pool order. */
+/**
+ * The best time-trial route, or null for an empty pool. Ties keep pool order.
+ * When no loop is within tolerance, the one closest in distance wins.
+ */
 export function pickTimeTrialRoute<T extends ScoredCandidate>(
   pool: T[],
   targetKm: number,
 ): T | null {
   const targetM = targetKm * 1000;
+  const fair = pool.filter((s) =>
+    withinTimeTrialDistance(s.candidate.distanceM, targetKm),
+  );
+  if (fair.length === 0) {
+    return pool.reduce<T | null>(
+      (best, s) =>
+        !best ||
+        Math.abs(s.candidate.distanceM - targetM) <
+          Math.abs(best.candidate.distanceM - targetM)
+          ? s
+          : best,
+      null,
+    );
+  }
   let best: { s: T; key: number[] } | null = null;
-  for (const s of pool) {
+  for (const s of fair) {
     const key = sortKey(s, targetM);
     if (!best || compareKeys(key, best.key) < 0) best = { s, key };
   }

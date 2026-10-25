@@ -671,5 +671,30 @@ describe('ensureRoutesForSession', () => {
       expect(cleared).toBe(true);
       expect(infos.map((i) => i.mapsUrl)).toEqual(['tt-1']);
     });
+
+    // Regression (2026-10-16): a degenerate loop picked before the distance
+    // gate must not be reused just because it was requested at the right size.
+    it('replaces an attached route far off the trial distance', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      const infos = await ensureRoutesForSession(
+        tt(),
+        ttDeps({ 1: 5 }, calls, {
+          getAttached: async () =>
+            [
+              {
+                id: 'r',
+                mapsUrl: 'degenerate',
+                distanceM: 950,
+                elevationGainM: 2,
+                direction: 'SW',
+                viaLabel: 'Route 1',
+                requestedKm: 5,
+              },
+            ] as never,
+        }),
+      );
+      expect(calls.length).toBeGreaterThan(0);
+      expect(infos.map((i) => i.mapsUrl)).toEqual(['tt-1']);
+    });
   });
 });

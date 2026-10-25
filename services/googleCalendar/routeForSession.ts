@@ -9,6 +9,7 @@ import { countCrossings } from '../routing/crossings';
 import {
   pickTimeTrialRoute,
   timeTrialLabelSuffix,
+  withinTimeTrialDistance,
   type ScoredCandidate,
 } from '../routing/timeTrialPick';
 import type { RankedCandidate } from '../routing/rank';
@@ -252,8 +253,14 @@ async function ensureTimeTrialRoute(
   targetKm: number,
   deps: RouteForSessionDeps,
 ): Promise<EventRouteInfo[]> {
+  // A route picked before the distance gate existed may be far off the target
+  // (1.9 km for a 10 km trial, 2026-10-16); treat it as stale so it's replaced.
   const existing = await deps.getAttached(session.id, 'auto');
-  if (existing.length === 1 && fitsTarget(existing, targetKm)) {
+  if (
+    existing.length === 1 &&
+    fitsTarget(existing, targetKm) &&
+    withinTimeTrialDistance(existing[0]!.distanceM, targetKm)
+  ) {
     return existing.map(attachedRouteToEventInfo);
   }
 

@@ -63,6 +63,26 @@ describe('pickTimeTrialRoute', () => {
     expect(pick([scored(1, 4500, null), scored(2, 5010, null)])).toBe(2);
   });
 
+  // Regression (2026-10-16): ORS returned a 1.9 km loop for a 10 km trial and
+  // it won on traffic lights.
+  it('never lets a loop far off the distance win on traffic lights', () => {
+    expect(
+      pick([scored(1, 1890, [12, 4]), scored(2, 10600, [30, 20])], 10),
+    ).toBe(2);
+  });
+
+  it('keeps loops within 10% in the running', () => {
+    expect(
+      pick([scored(1, 9050, [5, 5]), scored(2, 10000, [30, 20])], 10),
+    ).toBe(1);
+  });
+
+  it('falls back to the closest distance when no loop is within 10%', () => {
+    expect(
+      pick([scored(1, 1890, [0, 0]), scored(2, 8000, [30, 20])], 10),
+    ).toBe(2);
+  });
+
   it('returns null for an empty pool', () => {
     expect(pickTimeTrialRoute([], 5)).toBeNull();
   });
