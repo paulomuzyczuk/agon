@@ -187,6 +187,14 @@ export async function getOpenSuggestionFor(
   return rows[0] ? toStored(rows[0]) : null;
 }
 
+/** Every open suggestion, oldest first — the dashboard's "needs a look" list. */
+export async function listOpenSuggestions(): Promise<StoredSuggestion[]> {
+  const { rows } = await query<SuggestionRow>(
+    `${SELECT_SUGGESTION} WHERE m.status = 'open' ORDER BY m.created_at, m.short_id`,
+  );
+  return rows.map(toStored);
+}
+
 /** "29 Sep" from YYYY-MM-DD. */
 function shortDate(iso: string): string {
   const d = new Date(`${iso}T12:00:00Z`);

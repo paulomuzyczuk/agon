@@ -217,3 +217,16 @@ export interface StopSuggestionView {
   distanceKm: number;
   movingS: number;
 }
+
+/** GET /api/missed-stops: what the dashboard needs to link to each open one. */
+export interface OpenStopSuggestionsResponse {
+  suggestions: Array<{
+    id: string;
+    kind: 'run' | 'ride';
+    date: string;
+    confidence: MissedStopSuggestion['confidence'];
+    trimS: number;
+    /** Detail page that holds the Trim / Keep buttons. */
+    href: string;
+  }>;
+}

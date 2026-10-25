@@ -1,3 +1,4 @@
+import { GET as listRoute } from '@/app/api/missed-stops/route';
 import { logger } from '@/services/logger';
 import { loadEnv } from '@/scripts/loadEnv';
 import { query, closeDbPool } from '@/services/db';
@@ -7,6 +8,7 @@ import { upsertRideStreams, upsertRunStreams } from '@/services/runStreams';
 import {
   detectNewMissedStops,
   getOpenSuggestionFor,
+  listOpenSuggestions,
   notifyOpenSuggestions,
   postSyncMissedStops,
   resolveSuggestion,
@@ -310,5 +312,41 @@ describe('resolving', () => {
       today: '2026-09-30',
     });
     expect(reply).toMatch(/already stale/);
+  });
+});
+
+describe('open suggestions list (dashboard)', () => {
+  it('lists open suggestions with a link to the activity page, and drops resolved ones', async () => {
+    const a = await seedRide(`${EXT}-l1`);
+    const b = await seedRide(`${EXT}-l2`);
+    const found = await ours([a, b]); // one detection pass finds both
+    const sa = found.find((s) => s.activityId === a)!;
+    const sb = found.find((s) => s.activityId === b)!;
+
+    const open = await listOpenSuggestions();
+    expect(open.map((s) => s.id)).toEqual(
+      expect.arrayContaining([sa.id, sb.id]),
+    );
+
+    const res = await listRoute();
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: sa.id,
+          kind: 'ride',
+          confidence: 'home',
+          href: `/rides/${a}`,
+        }),
+      ]),
+    );
+
+    await resolveSuggestion({ id: sb.id }, 'dismiss');
+    const after = (await (await listRoute()).json()).suggestions as Array<{
+      id: string;
+    }>;
+    expect(after.map((s) => s.id)).toContain(sa.id);
+    expect(after.map((s) => s.id)).not.toContain(sb.id);
   });
 });

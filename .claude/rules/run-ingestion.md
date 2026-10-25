@@ -196,7 +196,11 @@ stream of runs/rides from the last 30 days:
 Hits are stored in `missed_stop_suggestions` (one row per activity) and
 never applied automatically. Activities with a hand-made late-stop trim
 are skipped. Applying a suggestion goes through the MZY-253 late-stop
-correction. Backtest with `pnpm stops:backtest [--list]`; on 2026-09-30
+correction. Open suggestions are listed on the dashboard (`GET
+/api/missed-stops`, `components/OpenStopSuggestions.tsx`) as well as on the
+activity page, and `notifyOpenSuggestions` logs a warning when
+`TELEGRAM_OWNER_CHAT_ID`/`TELEGRAM_BOT_TOKEN` are missing instead of
+skipping silently. Backtest with `pnpm stops:backtest [--list]`; on 2026-09-30
 it flagged 0 of 78 runs and 1 of 3 rides (ride 2, already hand-trimmed).
 
 Consequence: `strava:enrich` (in-place enrichment of `google_health` rows)

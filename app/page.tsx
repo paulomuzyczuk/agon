@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { RecordTile } from '@/components/RecordTile';
+import { OpenStopSuggestions } from '@/components/OpenStopSuggestions';
 
 // Dashboard index. Read-mostly (CLAUDE.md build order): the write path is
 // Telegram + ingestion scripts; these tiles are visualization over the dbt
@@ -14,6 +15,7 @@ export default function Home() {
       </header>
 
       <nav className="tiles">
+        <OpenStopSuggestions />
         <RecordTile />
         <Link href="/training-load" className="tile">
           <h2>Training load →</h2>
