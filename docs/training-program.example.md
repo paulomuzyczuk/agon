@@ -182,6 +182,38 @@ exercise selection.
 ### Default calendar times
 
 Set to your own time zone (`config/athlete-profile.local.json` `timeZone`).
+The defaults live in `services/googleCalendar/eventSlots.ts`; edit them there
+or move an event in Google Calendar (a hand edit wins).
 
-- **Runs:** 12:00 start; duration estimated from distance × pace.
-- **Lifts:** 22:00 start on weekdays, 19:30 on weekends, 60 min.
+- **Runs:** 19:00 start; duration estimated from distance × pace.
+- **Lifts:** 22:30 start on weekdays, 19:30 on weekends, 60 min.
+- **Bike sessions:** 17:00 start.
+- **Commute rides:** 08:30 to work, 18:30 home, 30 min each (see below).
+
+## Time trials
+
+Monthly progress checks over 5 / 10 / 15 / 21.1 km that feed the race
+predictions. `lib/training/timeTrials.ts` lays down four a month on a fixed
+pattern when no program covers the date: week 1 a 5 km (Wednesday), week 2 a
+15 km (Saturday), week 3 a 10 km (Wednesday), week 4 a 21.1 km (Saturday); a
+fifth week stays free. Seed them with `pnpm seed:time-trials`. Inside a program
+block you place them by hand in your program file in place of a session of
+similar volume, and keep peak, deload and taper weeks free.
+
+To run a trial as a straight out-and-back instead of a loop, set
+`timeTrialOutAndBack` in the athlete profile (distance in km → turnaround
+place). `timeTrialVia` lists places the loop candidates may pass.
+
+## Commutes
+
+Bike commutes are not part of the program. Set a `commute` window
+(`weekdays` as ISO weekdays, `from`, `until`) in the athlete profile and run
+`pnpm seed:commutes`; each commute day gets one ride to work and one home. The
+far end of the commute is read from `AGON_WORK_LAT` / `AGON_WORK_LNG` in
+`.env.local`, never from the profile (it is a personal location).
+
+## Further blocks
+
+The three blocks above are what `programBlockCount` says. A hand-specified
+extra block (a race build, say) is written the same way as these and wired in
+through your own program module, which stays out of the repository.
