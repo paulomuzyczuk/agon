@@ -1,0 +1,39 @@
+# Agon Postgres backup as a USER unit (MZY-401): no sudo, no dedicated `agon` user.
+# The system-wide variant (deploy/agon-backup.service) assumes User=agon and /opt/agon.
+#
+# Runs `pnpm db:backup` (pg_dump via `docker exec`, verify, rotate; see
+# docs/self-hosting/backups.md). The script loads .env.local itself, so this unit
+# has no EnvironmentFile (systemd would also hand `KEY=value # comment` lines to
+# the service with the comment as part of the value).
+#
+# Install (as your normal user):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/user/agon-backup.service deploy/user/agon-backup.timer ~/.config/systemd/user/
+#   # Edit two things in the copied service file if they differ on your machine:
+#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
+#   #   PATH              must contain the directory of `pnpm` and `node`: run
+#   #                     `dirname "$(command -v pnpm)"` and put that first (nvm
+#   #                     installs are versioned, so it cannot be guessed here)
+#   systemd-analyze --user verify ~/.config/systemd/user/agon-backup.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now agon-backup.timer
+#   systemctl --user start agon-backup.service      # run once, now
+#   journalctl --user -u agon-backup -n 20
+#   loginctl enable-linger "$USER"                  # keep user timers running while logged out
+#
+# Put AGON_BACKUP_DIR in .env.local on a DIFFERENT disk from the Docker volume.
+
+[Unit]
+Description=Agon Postgres backup (pg_dump + rotation)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/agon
+# A scheduler's clean environment can resolve the Docker CLI to the Docker Desktop
+# context (an engine without the agon container); pin the native engine. Read by
+# scripts/backupShared.ts. Change it for rootless Docker (unix:///run/user/<uid>/docker.sock).
+Environment=AGON_DOCKER_HOST=unix:///var/run/docker.sock
+# systemd does not use your login shell's PATH.
+Environment=PATH=%h/.local/share/pnpm:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env pnpm db:backup
+TimeoutStartSec=900

@@ -29,12 +29,19 @@ backup (MZY-113). This page makes sure that can't happen twice.
 | `AGON_BACKUP_KEEP_DAILY` | `14` | |
 | `AGON_BACKUP_KEEP_WEEKLY` | `8` | |
 | `AGON_DB_CONTAINER` | `agon-db-1` | |
+| `AGON_DOCKER_HOST` | unset (the CLI's current context) | Pins the Docker engine, e.g. `unix:///var/run/docker.sock`. Needed when a scheduler's `docker` resolves to Docker Desktop's empty engine (`no such container`). |
 
 ## Schedule it
 
-- **Linux tower (systemd):** `deploy/agon-backup.service` and
-  `deploy/agon-backup.timer`, daily at 03:30. Install steps are in the
-  service file's header.
+- **Linux, normal user (systemd, no sudo):** `deploy/user/agon-backup.service`
+  and `deploy/user/agon-backup.timer`, daily at 03:30. Install steps are in the
+  service file's header. Run `loginctl enable-linger "$USER"` once, or user
+  timers stop when you log out. Check the installed unit with
+  `systemd-analyze --user verify`, then run it once by hand and read
+  `journalctl --user -u agon-backup`.
+- **Linux tower (system-wide systemd):** `deploy/agon-backup.service` and
+  `deploy/agon-backup.timer`, daily at 03:30; they assume `User=agon` and
+  `/opt/agon`. Install steps are in the service file's header.
 - **macOS dev machine (launchd):** `deploy/com.agon.backup.plist`, daily at
   03:30 and caught up on wake. Install steps are in the plist's header comment.
   It logs to `backups/backup.log`.

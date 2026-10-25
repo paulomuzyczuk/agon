@@ -16,6 +16,10 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
 - **Bike maintenance check** — `pnpm gear:check-maintenance` nightly under a
   `systemd` timer (`agon-gear-maintenance.service` + `.timer`). Alerts to Telegram
   when a bike crosses a maintenance threshold (e.g. chain lube every 300 km).
+- **Database backup** — `pnpm db:backup` nightly. Either as a user unit with no
+  sudo (`deploy/user/agon-backup.*`, for a clone in a home directory) or as the
+  system-wide pair (`deploy/agon-backup.*`, `User=agon`, `/opt/agon`). Details and
+  the restore drill: `docs/self-hosting/backups.md`.
 - **n8n** — self-hosted automation (later).
 - Other scheduled jobs (`pnpm gcal:sync`, `pnpm gh:sync`, weather enrichment) via
   `cron` or `systemd` timers (later).

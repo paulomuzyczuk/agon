@@ -1,0 +1,16 @@
+# Daily schedule for the user-level Agon backup (agon-backup.service in this folder).
+#
+# See that unit for what it does and how to install both files.
+
+[Unit]
+Description=Back up the Agon database daily
+
+[Timer]
+# 03:30 local, after the day's ingestion has settled.
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=300
+# A machine that was off at 03:30 backs up as soon as it is back.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
