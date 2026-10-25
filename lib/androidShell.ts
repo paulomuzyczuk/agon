@@ -19,7 +19,7 @@ export interface AndroidServerConfig {
 
 const serverUrlSchema = z
   .string({
-    required_error:
+    error:
       'AGON_ANDROID_SERVER_URL is required, e.g. https://<tower>.<tailnet>.ts.net or http://127.0.0.1:3000 (dev via adb reverse)',
   })
   .trim()
@@ -58,7 +58,7 @@ export interface AndroidSigningEnv {
 const required = (name: string) =>
   z
     .string({
-      required_error: `${name} is required for a signed release build`,
+      error: `${name} is required for a signed release build`,
     })
     .trim()
     .min(1, `${name} is empty`);

@@ -65,7 +65,7 @@ export const fitbitSleepSchema = z.object({
         isMainSleep: z.boolean().optional(),
         type: z.string().optional(),
         levels: z
-          .object({ summary: z.record(sleepStageSchema).optional() })
+          .object({ summary: z.record(z.string(), sleepStageSchema).optional() })
           .partial()
           .optional(),
       })
