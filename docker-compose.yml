@@ -25,6 +25,9 @@
 #   docker compose --env-file .env.local --profile analytics run --rm dbt build   # one-shot, not a daemon
 #   docker compose --env-file .env.local run --rm app tsx scripts/migrate.ts  # one-off admin scripts (see package.json for the full script list)
 #
+# Voice notes on Linux (whisper.cpp inside the bot image) are an opt-in overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.voice.yml --env-file .env.local up -d --build bot
+#
 # See docs/self-hosting/README.md for the full walkthrough.
 
 # Pinned rather than left to default to the checkout directory's basename —

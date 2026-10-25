@@ -1,0 +1,21 @@
+# Voice notes on Linux (opt-in overlay). Swaps the `bot` image for one that also contains
+# ffmpeg + whisper.cpp + a ggml model. Use it together with the main file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.voice.yml --env-file .env.local up -d --build bot
+#
+# and set in .env.local:
+#   AGON_TRANSCRIPTION_PROVIDER=whisper-cpp
+#   AGON_TRANSCRIPTION_MODEL=/opt/whisper/models/model.bin
+#
+# Model size: AGON_WHISPER_MODEL=tiny|base|small|medium (default medium, ~1.5 GB download;
+# `small` is ~470 MB and fine for English). First build compiles whisper.cpp (a few minutes).
+# The `bot` image is the only one that changes; `app` is untouched. Run exactly one bot.
+services:
+  bot:
+    build:
+      context: docker/bot-whisper
+      additional_contexts:
+        agon_base: service:app
+      args:
+        WHISPER_MODEL: ${AGON_WHISPER_MODEL:-medium}
+    image: agon-bot-whisper:local
