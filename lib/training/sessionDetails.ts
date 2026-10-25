@@ -105,11 +105,10 @@ const QUALITY_RUNS: Record<string, string[]> = {
     'Cool-down: 2 km easy',
   ],
   time_trial: [
-    // Monthly time trials (lib/training/timeTrials.ts) — the target distance is
-    // the trial itself; warm-up and cool-down come on top of it.
-    'Warm-up: 2 km easy + 4×100 m strides',
-    'Main: the target distance all-out, even pacing — flattest route below',
-    'Cool-down: 1–2 km easy',
+    // Monthly time trials (lib/training/timeTrials.ts) — the route is the trial
+    // distance and nothing else, so no warm-up / cool-down lines (they read as
+    // an interval session, and the route doesn't cover them).
+    'Main: the target distance all-out, even pacing',
   ],
 };
 

@@ -87,7 +87,9 @@ describe('time trial session details', () => {
   });
 
   it('carries a warm-up / main / cool-down structure', () => {
-    expect(getRunDetail('time_trial')).toHaveLength(3);
+    expect(getRunDetail('time_trial')).toEqual([
+      'Main: the target distance all-out, even pacing',
+    ]);
   });
 
   it('sizes the event for the trial plus warm-up and cool-down', () => {
