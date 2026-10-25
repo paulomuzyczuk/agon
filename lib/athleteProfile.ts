@@ -70,6 +70,12 @@ const AthleteProfileSchema = z.object({
    * work in the morning and one home in the evening. The workplace itself is
    * PII and lives in env (AGON_WORK_LAT/LNG), not here.
    */
+  /**
+   * Places (parks, areas) a time-trial loop from home may route through, tried
+   * alongside plain loops — the pick is still on traffic lights
+   * (services/googleCalendar/routeForSession.ts). Optional.
+   */
+  timeTrialVia: z.array(z.string().min(1)).max(5).optional(),
   commute: z
     .object({
       weekdays: z.array(z.number().int().min(1).max(7)).min(1),

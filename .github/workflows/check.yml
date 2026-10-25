@@ -25,9 +25,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      # Complexity over 10 is a warning. --max-warnings is the ratchet: 90 is the
-      # count on 2026-10-08, and it may only go down. Lower it when you fix one.
-      - run: pnpm lint --max-warnings 90
+      # Complexity over 10 is a warning. --max-warnings is the ratchet: 90 was the
+      # count on 2026-10-08 (89 on 2026-10-15), and it may only go down. Lower it
+      # when you fix one.
+      - run: pnpm lint --max-warnings 89
       - run: pnpm budget:files
       - run: pnpm test
       # Not yet: 107 files fail Prettier today. Add this step back in the same

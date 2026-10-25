@@ -5,6 +5,14 @@ import {
 } from '../routing';
 import { homeLocationOrNull, workLocationOrNull } from '../routing/config';
 import { commuteLegOf, type CommuteLeg } from '../../lib/training/commutes';
+import { countCrossings } from '../routing/crossings';
+import {
+  pickTimeTrialRoute,
+  timeTrialLabelSuffix,
+  type ScoredCandidate,
+} from '../routing/timeTrialPick';
+import type { RankedCandidate } from '../routing/rank';
+import { getAthleteProfile } from '../../lib/athleteProfile';
 import { describeRouteVia, buildRouteLabel } from '../routing/routeDescription';
 import {
   saveSuggestionBatch,
@@ -73,6 +81,11 @@ const COMMUTE_STRETCH: Record<CommuteLeg, number> = {
 // again (a stretch too small to detour returns the spine itself).
 const SAME_ROUTE_FRACTION = 0.02;
 
+// Time trials get ONE route, picked on traffic lights from a wider pool: plain
+// loops from home plus loops through each profile `timeTrialVia` place.
+const TIME_TRIAL_LOOP_POOL = 5;
+const TIME_TRIAL_VIA_POOL = 3;
+
 /** Deps seam so the sync can be unit-tested without the routing API or a DB. */
 export interface RouteForSessionDeps {
   getAttached: typeof getAttachedRoutes;
@@ -84,6 +97,9 @@ export interface RouteForSessionDeps {
   /** Commute endpoints; null when the env doesn't set them. */
   home: () => ReturnType<typeof homeLocationOrNull>;
   work: () => ReturnType<typeof workLocationOrNull>;
+  countCrossings: typeof countCrossings;
+  /** Places a time-trial loop may route through (athlete profile). */
+  timeTrialVias: () => string[];
 }
 
 const defaultDeps: RouteForSessionDeps = {
@@ -95,6 +111,8 @@ const defaultDeps: RouteForSessionDeps = {
   attach: attachSuggestionToPlannedSession,
   home: homeLocationOrNull,
   work: workLocationOrNull,
+  countCrossings,
+  timeTrialVias: () => getAthleteProfile().timeTrialVia ?? [],
 };
 
 /**
@@ -146,17 +164,47 @@ export async function ensureRoutesForSession(
   if (session.sessionKind !== 'run' && session.sessionKind !== 'bike') {
     return [];
   }
-  const isBike = session.sessionKind === 'bike';
   // A hand-written route in the session's detail is the athlete's own route
   // for it (MZY-262): don't pile auto loops from home on top of it.
   if (detailHasOwnRoute(session.detail)) return [];
-  const leg = isBike ? commuteLegOf(session.targetSessionType) : null;
+  const leg =
+    session.sessionKind === 'bike'
+      ? commuteLegOf(session.targetSessionType)
+      : null;
   if (leg) return ensureCommuteRoutes(session, leg, deps);
-  const targetKm = isBike
+  const targetKm = loopTargetKm(session);
+  if (!targetKm || targetKm <= 0) return [];
+  if (session.targetSessionType === 'time_trial') {
+    return ensureTimeTrialRoute(session, targetKm, deps);
+  }
+  return ensureLoopRoutes(session, targetKm, deps);
+}
+
+/** A loop's size: the session's distance, or a ride's inferred one. */
+function loopTargetKm(session: CalendarSyncRow): number | null {
+  return session.sessionKind === 'bike'
     ? (session.targetDistanceKm ?? inferBikeTargetKm())
     : session.targetDistanceKm;
-  if (!targetKm || targetKm <= 0) return [];
-  const profile: RouteProfile = isBike ? 'cycling-regular' : 'foot-walking';
+}
+
+/**
+ * True when every attached route was generated for this target. Routes with
+ * no recorded request size are trusted.
+ */
+function fitsTarget(existing: AttachedRoute[], targetKm: number): boolean {
+  return existing.every(
+    (r) => r.requestedKm == null || Math.abs(r.requestedKm - targetKm) < 0.01,
+  );
+}
+
+/** Three directionally diverse loops from home, for a run or a training ride. */
+async function ensureLoopRoutes(
+  session: CalendarSyncRow,
+  targetKm: number,
+  deps: RouteForSessionDeps,
+): Promise<EventRouteInfo[]> {
+  const profile: RouteProfile =
+    session.sessionKind === 'bike' ? 'cycling-regular' : 'foot-walking';
 
   // Reuse an existing AUTO set once it's already the desired size (idempotent
   // re-sync) AND it was generated for the session's current target. A target the
@@ -165,10 +213,7 @@ export async function ensureRoutesForSession(
   // edited distance. Routes with no recorded request size are trusted as before.
   // Ad-hoc routes on the same session are a separate kind, untouched.
   const existing = await deps.getAttached(session.id, 'auto');
-  const sizedForTarget = existing.every(
-    (r) => r.requestedKm == null || Math.abs(r.requestedKm - targetKm) < 0.01,
-  );
-  if (existing.length >= ROUTES_PER_SESSION && sizedForTarget) {
+  if (existing.length >= ROUTES_PER_SESSION && fitsTarget(existing, targetKm)) {
     return existing.slice(0, ROUTES_PER_SESSION).map(attachedRouteToEventInfo);
   }
 
@@ -194,6 +239,73 @@ export async function ensureRoutesForSession(
   }
 
   return persistAndAttach(session, result, labels, deps);
+}
+
+/**
+ * The single route for a time trial: reuse it while it still fits the target,
+ * else generate a pool, count each candidate's crossings and keep the best
+ * (services/routing/timeTrialPick.ts). A via that fails to route only shrinks
+ * the pool; a failed plain-loop generation throws like any other route.
+ */
+async function ensureTimeTrialRoute(
+  session: CalendarSyncRow,
+  targetKm: number,
+  deps: RouteForSessionDeps,
+): Promise<EventRouteInfo[]> {
+  const existing = await deps.getAttached(session.id, 'auto');
+  if (existing.length === 1 && fitsTarget(existing, targetKm)) {
+    return existing.map(attachedRouteToEventInfo);
+  }
+
+  const pool: { candidate: RankedCandidate; result: SuggestRoutesResult }[] =
+    [];
+  const add = (result: SuggestRoutesResult) =>
+    pool.push(...result.candidates.map((candidate) => ({ candidate, result })));
+  add(
+    await deps.generate({
+      targetKm,
+      keep: TIME_TRIAL_LOOP_POOL,
+      diverse: true,
+    }),
+  );
+  for (const via of deps.timeTrialVias()) {
+    try {
+      add(
+        await deps.generate({
+          targetKm,
+          through: [{ place: via }],
+          keep: TIME_TRIAL_VIA_POOL,
+          diverse: true,
+        }),
+      );
+    } catch {
+      // an unroutable via just contributes no candidates
+    }
+  }
+  if (pool.length === 0) return [];
+
+  const scored: (ScoredCandidate & { result: SuggestRoutesResult })[] = [];
+  for (const p of pool) {
+    scored.push({
+      ...p,
+      crossings: await deps.countCrossings(p.candidate.coordinates),
+    });
+  }
+  const best = pickTimeTrialRoute(scored, targetKm);
+  if (!best) return [];
+  await deps.clearAttached(session.id);
+
+  const c = best.candidate;
+  const via = await deps.describeVia(c.coordinates);
+  const label =
+    `${buildRouteLabel(1, c.distanceM / 1000, via, c.direction)} · ` +
+    timeTrialLabelSuffix(best, targetKm);
+  return persistAndAttach(
+    session,
+    { ...best.result, candidates: [c] },
+    [label],
+    deps,
+  );
 }
 
 /**

@@ -39,6 +39,10 @@ function deps(over: Partial<RouteForSessionDeps>): RouteForSessionDeps {
     },
     home: () => null,
     work: () => null,
+    countCrossings: async () => {
+      throw new Error('countCrossings should not be called');
+    },
+    timeTrialVias: () => [],
     ...over,
   };
 }
@@ -516,6 +520,156 @@ describe('ensureRoutesForSession', () => {
       );
       expect(calls).toEqual([]);
       expect(infos.map((i) => i.mapsUrl)).toEqual(['kept-1']);
+    });
+  });
+
+  describe('time trials', () => {
+    const tt = () =>
+      run({
+        targetDistanceKm: 5,
+        targetSessionType: 'time_trial',
+        targetHrCap: null,
+      });
+
+    function loop(seed: number, distanceM: number) {
+      return {
+        seed,
+        distanceM,
+        elevationGainM: 20,
+        elevationGainPerKmM: 4,
+        distanceErrorM: Math.abs(distanceM - 5000),
+        coordinates: [[seed, seed]] as number[][],
+        provider: 'ors',
+        direction: 'N',
+      };
+    }
+
+    // Traffic lights per candidate, keyed by seed (coordinates carry the seed).
+    function ttDeps(
+      signalsBySeed: Record<number, number>,
+      calls: SuggestRoutesInput[],
+      over: Partial<RouteForSessionDeps> = {},
+    ): RouteForSessionDeps {
+      return deps({
+        timeTrialVias: () => ['Volkspark'],
+        generate: async (input) => {
+          calls.push(input);
+          const fromVia = (input.through?.length ?? 0) > 0;
+          return {
+            start: { lat: 0, lng: 0, label: 'home' },
+            targetKm: input.targetKm,
+            profile: 'foot-walking',
+            candidates: fromVia
+              ? [loop(11, 5100), loop(12, 5050)]
+              : [loop(1, 5000), loop(2, 4900), loop(3, 5200)],
+          };
+        },
+        countCrossings: async (coords) => {
+          const seed = (coords as number[][])[0]![0]!;
+          return {
+            trafficSignals: signalsBySeed[seed] ?? 50,
+            plainCrossings: 10,
+          };
+        },
+        save: async (result, extras) => ({
+          batchId: 'b-tt',
+          suggestions: result.candidates.map((c, i) => ({
+            id: `sug-tt-${c.seed}`,
+            batchId: 'b-tt',
+            rank: i + 1,
+            seed: c.seed,
+            distanceM: c.distanceM,
+            elevationGainM: c.elevationGainM,
+            provider: c.provider,
+            gpx: '<gpx/>',
+            mapsUrl: `tt-${c.seed}`,
+            direction: c.direction ?? null,
+            viaLabel: extras?.labels?.[i] ?? null,
+            kind: 'auto',
+            plannedSessionId: null,
+          })),
+        }),
+        attach: async () => ({ plannedDate: '2026-10-21', sessionKind: 'run' }),
+        ...over,
+      });
+    }
+
+    it('keeps exactly one route: the fewest traffic lights across home and via loops', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      const infos = await ensureRoutesForSession(
+        tt(),
+        ttDeps({ 1: 40, 2: 30, 3: 45, 11: 12, 12: 9 }, calls),
+      );
+      expect(infos).toHaveLength(1);
+      expect(infos[0]!.mapsUrl).toBe('tt-12');
+      expect(infos[0]!.label).toMatch(/9 traffic lights, 10 other crossings$/);
+      expect(calls.map((c) => c.through ?? null)).toEqual([
+        null,
+        [{ place: 'Volkspark' }],
+      ]);
+    });
+
+    it('still picks from the home loops when a via fails to route', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      const base = ttDeps({ 1: 40, 2: 30, 3: 45 }, calls);
+      const infos = await ensureRoutesForSession(
+        tt(),
+        ttDeps({ 1: 40, 2: 30, 3: 45 }, calls, {
+          generate: async (input) => {
+            if (input.through) throw new Error('no route through via');
+            return base.generate(input);
+          },
+        }),
+      );
+      expect(infos.map((i) => i.mapsUrl)).toEqual(['tt-2']);
+      expect(infos[0]!.label).toMatch(/run 100 m past the finish/);
+    });
+
+    it('reuses the one attached route while it fits the target', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      const infos = await ensureRoutesForSession(
+        tt(),
+        ttDeps({}, calls, {
+          getAttached: async () => [
+            {
+              id: 'r',
+              mapsUrl: 'kept',
+              distanceM: 5000,
+              elevationGainM: 10,
+              direction: 'N',
+              viaLabel: 'Route 1',
+              requestedKm: 5,
+            } as never,
+          ],
+        }),
+      );
+      expect(calls).toEqual([]);
+      expect(infos.map((i) => i.mapsUrl)).toEqual(['kept']);
+    });
+
+    it('replaces an old three-route set with a single route', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      let cleared = false;
+      const old = {
+        id: 'r',
+        mapsUrl: 'old',
+        distanceM: 4800,
+        elevationGainM: 10,
+        direction: 'N',
+        viaLabel: 'x',
+        requestedKm: 5,
+      } as never;
+      const infos = await ensureRoutesForSession(
+        tt(),
+        ttDeps({ 1: 5 }, calls, {
+          getAttached: async () => [old, old, old],
+          clearAttached: async () => {
+            cleared = true;
+          },
+        }),
+      );
+      expect(cleared).toBe(true);
+      expect(infos.map((i) => i.mapsUrl)).toEqual(['tt-1']);
     });
   });
 });
