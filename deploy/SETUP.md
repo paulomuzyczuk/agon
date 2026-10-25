@@ -142,9 +142,10 @@ docker compose --env-file .env.local exec db psql -U agon -d agon -c "SELECT cou
 ### 5A. Fully local, free, open-source (recommended for the tower)
 
 ```sh
-# Ollama + self-hosted OpenRouteService (root docker-compose.yml's `local-ai` profile —
-# merged from the former deploy/docker-compose.selfhost.yml)
-docker compose --env-file .env.local --profile local-ai up -d ollama ors-app
+# Ollama + self-hosted OpenRouteService (root docker-compose.yml's `local-ai` and
+# `local-routing` profiles — merged from the former deploy/docker-compose.selfhost.yml)
+docker compose --env-file .env.local --profile local-ai up -d ollama
+docker compose --env-file .env.local --profile local-routing up -d ors-app
 docker compose --env-file .env.local exec ollama ollama pull qwen2.5:7b     # or llama3.1:8b
 
 # whisper.cpp (build with CUDA to use the GPU)
@@ -160,7 +161,7 @@ mkdir -p ors-docker/files
 curl -L -o ors-docker/files/region.osm.pbf \
   https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
 # set REBUILD_GRAPHS: 'True' in docker-compose.yml for the first run, then
-# `docker compose --env-file .env.local --profile local-ai up -d ors-app` and wait for the graph
+# `docker compose --env-file .env.local --profile local-routing up -d ors-app` and wait for the graph
 # build (watch: docker compose --env-file .env.local logs -f ors-app), then set it back to 'False'.
 ```
 

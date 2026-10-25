@@ -31,8 +31,9 @@ design reference.
   `scripts/start-web.ts` → `node server.js` (`next start` is documented as
   incompatible with standalone output).
 - **`docker-compose.yml`**: default (no `--profile`) = `db`+`app`+`bot`;
-  `--profile local-ai` = Ollama + self-hosted OpenRouteService; `--profile
-  analytics` = the one-shot `dbt` container. Top-level `name: agon` pins the
+  `--profile local-ai` = Ollama, `--profile local-routing` = self-hosted
+  OpenRouteService (separate so a busy ORS port can't abort Ollama's `up`; always
+  name the service); `--profile analytics` = the one-shot `dbt` container. Top-level `name: agon` pins the
   Compose project name (predictable container names regardless of checkout
   directory — see the Linear incident write-up for why this matters:
   never rely on directory-path-derived project names when testing in a

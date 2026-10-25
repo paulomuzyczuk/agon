@@ -18,7 +18,10 @@
 #
 # Profiles (opt in/out of pieces):
 #   docker compose --env-file .env.local up -d                            # db + app + bot (the minimal useful instance)
-#   docker compose --env-file .env.local --profile local-ai up -d ollama ors-app
+#   docker compose --env-file .env.local --profile local-ai up -d ollama       # LLM (voice-note parsing)
+#   docker compose --env-file .env.local --profile local-routing up -d ors-app  # self-hosted routing
+# Always name the service: a bare `up -d` with a profile starts everything in it,
+# and one failed bind (e.g. a busy host port) aborts the whole `up` (MZY-399).
 #   docker compose --env-file .env.local --profile analytics run --rm dbt build   # one-shot, not a daemon
 #   docker compose --env-file .env.local run --rm app tsx scripts/migrate.ts  # one-off admin scripts (see package.json for the full script list)
 #
@@ -104,16 +107,17 @@ services:
     volumes:
       - ./config:/app/config:ro
 
-  # ── --profile local-ai — fully-local AI + routing stack (no API keys) ──────
-  # Set AGON_LLM_PROVIDER=ollama / AGON_TRANSCRIPTION_PROVIDER=whisper-cpp (the
-  # latter also needs a host- or container-built whisper.cpp — see
-  # docs/self-hosting/README.md) and ORS_BASE_URL=http://localhost:8080/ors in
-  # .env.local to point the app at these.
+  # ── --profile local-ai / local-routing — fully-local AI + routing (no API keys) ──
+  # Set AGON_LLM_PROVIDER=ollama (and ORS_BASE_URL=http://localhost:8080/ors for
+  # the routing profile) in .env.local to point the app at these. Whisper is not
+  # a service here: it runs inside the bot container, see docker-compose.voice.yml.
+  # The host ports are variables because a machine often already runs Ollama (11434)
+  # or something on 8080 — set OLLAMA_HOST_PORT / ORS_HOST_PORT in .env.local.
   ollama:
     image: ollama/ollama:latest
     profiles: ['local-ai']
     ports:
-      - '11434:11434'
+      - '${OLLAMA_HOST_PORT:-11434}:11434'
     volumes:
       - ollama-models:/root/.ollama
     restart: unless-stopped
@@ -134,9 +138,9 @@ services:
   # https://giscience.github.io/openrouteservice/run-instance/running-with-docker
   ors-app:
     image: openrouteservice/openrouteservice:v8.0.0
-    profiles: ['local-ai']
+    profiles: ['local-routing']
     ports:
-      - '8080:8082' # API at http://localhost:8080/ors/v2/...
+      - '${ORS_HOST_PORT:-8080}:8082' # API at http://localhost:${ORS_HOST_PORT:-8080}/ors/v2/...
     volumes:
       - ./ors-docker/graphs:/home/ors/graphs
       - ./ors-docker/elevation_cache:/home/ors/elevation_cache

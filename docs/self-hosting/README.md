@@ -175,8 +175,17 @@ placeholders.
   --env-file .env.local --profile local-ai up -d ollama` and `docker compose
   --env-file .env.local exec ollama ollama pull qwen2.5:7b`; swapping to
   `claude-cli` or `anthropic` (BYOK) is a one-line env change, never
-  required. `docker-compose.yml`'s `local-ai` profile also covers
-  transcription (whisper.cpp) and routing (a self-hosted OpenRouteService).
+  required.
+
+  **Ollama already running on this machine?** Either skip the container and
+  set `AGON_LLM_BASE_URL` to the host Ollama, or keep the container and set
+  `OLLAMA_HOST_PORT` (and `ORS_HOST_PORT` for routing) in `.env.local` so the
+  host ports don't collide. If you bind-mount the host Ollama's model directory
+  into the container to avoid a re-download, it must be **read-write** (a
+  `:ro` mount crash-loops on Ollama's startup migration), and that directory
+  is not Agon's: never delete it as part of cleaning up Agon. Local transcription (whisper.cpp) is a separate opt-in overlay,
+  see [telegram.md](telegram.md); routing (a self-hosted OpenRouteService) is the
+  `local-routing` profile (`up -d ors-app`).
 
 ## Updating
 

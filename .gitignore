@@ -84,7 +84,7 @@ vault/
 # read-write in docker-compose.yml; never committed.
 /data/
 
-# Self-hosted OpenRouteService data (docker-compose.yml --profile local-ai) —
+# Self-hosted OpenRouteService data (docker-compose.yml --profile local-routing) —
 # downloaded OSM extracts + generated routing graphs, regenerable, large.
 /ors-docker/
 

@@ -108,12 +108,13 @@ adding a new task.
 
 ## Fully-local AI stack (free, open-source, no API keys)
 
-The root `docker-compose.yml`'s `local-ai` profile runs the AI + routing services
+The root `docker-compose.yml`'s `local-ai` (Ollama) and `local-routing` (OpenRouteService) profiles run the AI + routing services
 on the tower (merged from the former `deploy/docker-compose.selfhost.yml` —
 self-hosting decision, see `CLAUDE.md` → "App packaging"):
 
 ```sh
-docker compose --env-file .env.local --profile local-ai up -d ollama ors-app
+docker compose --env-file .env.local --profile local-ai up -d ollama
+docker compose --env-file .env.local --profile local-routing up -d ors-app
 docker compose --env-file .env.local exec ollama ollama pull qwen2.5:7b     # or llama3.1:8b
 ```
 
