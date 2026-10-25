@@ -294,15 +294,15 @@ describe('mapSessionToEvent — lifts', () => {
   it('places a late-evening 60-minute event listing the exercises', () => {
     const e = mapSessionToEvent(lift);
     expect(e.summary).toBe('🏋️ Lift — Push');
-    expect(e.start.dateTime).toBe('2026-07-29T22:00:00');
-    expect(e.end.dateTime).toBe('2026-07-29T23:00:00');
+    expect(e.start.dateTime).toBe('2026-07-29T22:30:00');
+    expect(e.end.dateTime).toBe('2026-07-29T23:30:00');
     // Every push exercise appears, one per row, with its sets × reps.
     expect(e.description).toContain('Bench press — 5×5');
     expect(e.description).toContain('Triceps pushdown — 3×12');
     expect(e.description).not.toContain('Session: push'); // detail replaces the stub
   });
 
-  it('never overlaps the run on a double day (run 12:xx vs lift 22:00)', () => {
+  it('never overlaps the run on a double day (run 19:xx vs lift 22:30)', () => {
     const run = mapSessionToEvent(base);
     const l = mapSessionToEvent(lift); // 2026-07-29 is a Wednesday → weekday
     expect(run.end.dateTime < l.start.dateTime).toBe(true);
@@ -319,9 +319,9 @@ describe('mapSessionToEvent — lifts', () => {
     expect(sunday.end.dateTime).toBe('2026-08-02T20:30:00'); // 60 min
   });
 
-  it('keeps weekday lifts at 22:00', () => {
+  it('keeps weekday lifts at 22:30', () => {
     // Sanity: the base lift date (Wed) stays on the weeknight slot.
-    expect(mapSessionToEvent(lift).start.dateTime).toBe('2026-07-29T22:00:00');
+    expect(mapSessionToEvent(lift).start.dateTime).toBe('2026-07-29T22:30:00');
   });
 });
 
@@ -493,9 +493,9 @@ describe('mapSessionToEvent — per-session start time', () => {
       startTimePriority: 'strong',
       startTimeReason: 'gym closes early',
     });
-    // 2026-07-29 is a Wednesday → default lift slot is 22:00.
+    // 2026-07-29 is a Wednesday → default lift slot is 22:30.
     expect(e.start.dateTime).toBe('2026-07-29T18:00:00');
-    expect(e.description).toContain('⏰ Moved to 18:00 (normally 22:00)');
+    expect(e.description).toContain('⏰ Moved to 18:00 (normally 22:30)');
   });
 });
 

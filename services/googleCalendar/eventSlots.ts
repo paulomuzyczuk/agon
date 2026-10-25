@@ -13,7 +13,9 @@ import type { EventMapOptions, PlannedSessionForEvent } from './eventMap';
 
 // 19:00 local — after work (athlete back in an office job, 2026-10-15; was noon).
 const RUN_START_HOUR = 19;
-const LIFT_START_HOUR = 22; // 22:00 local (10 PM) on weekdays
+// 22:30 local on weekdays — after the evening run (was 22:00 until 2026-10-15).
+const LIFT_START_HOUR = 22;
+const LIFT_START_MIN = 30;
 const LIFT_WEEKEND_START_HOUR = 19; // 19:30 local on Sat/Sun — no late weeknight
 const LIFT_WEEKEND_START_MIN = 30;
 const LIFT_DURATION_MIN = 60;
@@ -116,7 +118,7 @@ export function defaultStart(
   opts: EventMapOptions,
 ): ClockTime {
   // Runs in the evening (19:00); commutes at their fixed times; other bike rides
-  // late afternoon; weekday lifts late evening (22:00), weekend lifts 19:30.
+  // late afternoon; weekday lifts late evening (22:30), weekend lifts 19:30.
   if (s.sessionKind === 'run') {
     return { hour: opts.runStartHour ?? RUN_START_HOUR, minute: 0 };
   }
@@ -129,7 +131,10 @@ export function defaultStart(
   if (isWeekend(s.date)) {
     return { hour: LIFT_WEEKEND_START_HOUR, minute: LIFT_WEEKEND_START_MIN };
   }
-  return { hour: opts.liftStartHour ?? LIFT_START_HOUR, minute: 0 };
+  // An explicit liftStartHour is a whole hour; only the default carries :30.
+  return opts.liftStartHour !== undefined
+    ? { hour: opts.liftStartHour, minute: 0 }
+    : { hour: LIFT_START_HOUR, minute: LIFT_START_MIN };
 }
 
 /**
