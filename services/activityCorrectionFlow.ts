@@ -66,14 +66,28 @@ const KINDS: Record<CorrectionActivityKind, KindConfig> = {
     table: 'runs',
     streams: 'run_streams',
     fk: 'run_id',
-    arrays: [...SHARED_ARRAYS, 'derived_moving', 'fitbit_cadence'],
+    arrays: [
+      ...SHARED_ARRAYS,
+      'derived_moving',
+      'fitbit_cadence',
+      'heartrate_source_device',
+    ],
     idKey: 'runId',
   },
   ride: {
     table: 'rides',
     streams: 'ride_streams',
     fk: 'ride_id',
-    arrays: SHARED_ARRAYS,
+    arrays: [
+      ...SHARED_ARRAYS,
+      'watts',
+      // Live recordings (MZY-271): *_source_device must stay as long as time_s
+      // (ride_streams_source_device_aligned), or the whole cut is rejected.
+      'heartrate_source_device',
+      'cadence_source_device',
+      'velocity_source_device',
+      'watts_source_device',
+    ],
     idKey: 'rideId',
   },
 };
@@ -217,6 +231,13 @@ function localDateOf(startedAt: string): {
 } {
   const date = athleteLocalParts(startedAt, getAthleteProfile().timeZone).date;
   return { date, ...computeBlockWeek(date) };
+}
+
+/** The stream columns a late-stop cut slices — exported so a test can hold it to the table's real array columns. */
+export function streamCutColumns(
+  kind: CorrectionActivityKind,
+): readonly string[] {
+  return KINDS[kind].arrays;
 }
 
 async function cutStreams(

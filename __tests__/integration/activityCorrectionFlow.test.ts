@@ -7,6 +7,7 @@ import {
   applyCorrection,
   previewCorrection,
   revertCorrectionGroup,
+  streamCutColumns,
 } from '@/services/activityCorrectionFlow';
 import { classifyIncomingActivity } from '@/services/activitySources';
 import { fetchRunWeather } from '@/services/weather/openMeteo';
@@ -422,4 +423,115 @@ describe('run: late stop + totals', () => {
     );
     expect(rows[0]!.avg_pace_s_per_km).toBe(300);
   });
+});
+
+// Live recordings (MZY-271) carry per-point device indices and, with a power
+// meter, watts. ride_streams_source_device_aligned requires every
+// *_source_device array to match time_s, so a late-stop cut that misses one
+// fails the whole correction (found trimming the 2026-10-18 ride, whose last
+// 112 s were standing still).
+describe('late stop on a live-recorded stream', () => {
+  const DEVICES = [
+    { name: 'HRM 200', kind: 'heart_rate' as const, ble_id: 'hr-1' },
+    { name: 'Speed', kind: 'csc' as const, ble_id: 'spd-1' },
+  ];
+
+  function live() {
+    const s = stream(1000, 7);
+    const n = s.timeS.length;
+    const idx = (i: number) => Array.from({ length: n }, () => i);
+    return {
+      ...s,
+      cadence: Array.from({ length: n }, () => 80),
+      velocitySmoothMps: Array.from({ length: n }, () => 7),
+      sourceDevices: DEVICES,
+      heartrateSourceDevice: idx(0),
+      cadenceSourceDevice: idx(1),
+      velocitySourceDevice: idx(1),
+      n,
+    };
+  }
+
+  it('cuts every ride device array and watts together with time_s', async () => {
+    const { id } = await upsertRide(
+      ride({ source: 'live_recording', external_id: `${EXT}-live` }),
+    );
+    const { n, ...data } = live();
+    await upsertRideStreams(id, 'live_recording', {
+      ...data,
+      watts: Array.from({ length: n }, () => 150),
+      wattsSource: 'device',
+      wattsSourceDevice: Array.from({ length: n }, () => 1),
+    });
+
+    await applyCorrection(
+      'ride',
+      id,
+      [{ kind: 'late_stop', trimMin: 3 }],
+      null,
+    );
+
+    const { rows } = await query<{ lens: number[] }>(
+      `SELECT ARRAY[sample_count, cardinality(time_s), cardinality(heartrate),
+                    cardinality(cadence), cardinality(velocity_smooth_mps),
+                    cardinality(watts), cardinality(heartrate_source_device),
+                    cardinality(cadence_source_device),
+                    cardinality(velocity_source_device),
+                    cardinality(watts_source_device)] AS lens
+         FROM public.ride_streams WHERE ride_id = $1`,
+      [id],
+    );
+    const kept = rows[0]!.lens[0]!;
+    expect(kept).toBeLessThan(n);
+    expect(rows[0]!.lens).toEqual(Array.from({ length: 10 }, () => kept));
+  });
+
+  it('cuts a live-recorded run heartrate_source_device with time_s', async () => {
+    const { id } = await upsertRun(
+      run({ source: 'live_recording', external_id: `${EXT}-live` }),
+    );
+    const { n, ...data } = live();
+    await upsertRunStreams(id, 'live_recording', {
+      timeS: data.timeS,
+      distanceM: data.distanceM,
+      moving: data.moving,
+      heartrate: data.heartrate,
+      sourceDevices: DEVICES,
+      heartrateSourceDevice: data.heartrateSourceDevice,
+    });
+
+    await applyCorrection('run', id, [{ kind: 'late_stop', trimMin: 3 }], null);
+
+    const { rows } = await query<{ lens: number[] }>(
+      `SELECT ARRAY[sample_count, cardinality(time_s),
+                    cardinality(heartrate_source_device)] AS lens
+         FROM public.run_streams WHERE run_id = $1`,
+      [id],
+    );
+    const kept = rows[0]!.lens[0]!;
+    expect(kept).toBeLessThan(n);
+    expect(rows[0]!.lens).toEqual([kept, kept, kept]);
+  });
+});
+
+// The cut list is hand-kept, so a migration that adds a per-point array column
+// would silently break every trim (or leave the new array longer than time_s).
+describe('late-stop cut list', () => {
+  it.each([
+    ['ride', 'ride_streams'],
+    ['run', 'run_streams'],
+  ] as const)(
+    'covers every array column of %s streams',
+    async (kind, table) => {
+      const { rows } = await query<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = $1
+            AND data_type = 'ARRAY'`,
+        [table],
+      );
+      expect([...streamCutColumns(kind)].sort()).toEqual(
+        rows.map((r) => r.column_name).sort(),
+      );
+    },
+  );
 });
