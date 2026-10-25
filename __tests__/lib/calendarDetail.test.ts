@@ -166,6 +166,16 @@ describe('commute ride detail', () => {
     expect(programDetailLines('bike', 'commute_home')[0]).toMatch(/longer way/);
   });
 
+  it('reminds about the chest strap on the morning ride only', () => {
+    const strap = /chest strap/;
+    expect(
+      programDetailLines('bike', 'commute_to_work').some((l) => strap.test(l)),
+    ).toBe(true);
+    expect(
+      programDetailLines('bike', 'commute_home').some((l) => strap.test(l)),
+    ).toBe(false);
+  });
+
   it("treats Agon's commute route section as Agon's, not the athlete's", () => {
     const e = mapSessionToEvent(
       {

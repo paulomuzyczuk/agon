@@ -16,11 +16,16 @@ export const BIKE_DEFAULT_DETAIL =
   'Easy Zone 2 spin — low-impact aerobic reserve, not a training target';
 
 /** Commute legs' default detail: the morning is about arriving, the evening isn't. */
+// The morning leg carries the chest-strap reminder: the strap leaves the house
+// with the athlete in the morning or not at all that day (asked 2026-10-15).
 export const COMMUTE_DETAIL = {
-  commute_to_work:
+  commute_to_work: [
     'Commute to work — fastest routes first; arrive fresh, not trained',
-  commute_home:
+    '🫀 Take the chest strap (Garmin HRM 200) with you',
+  ],
+  commute_home: [
     'Commute home — no clock to beat; take the longer way if you feel like it',
+  ],
 } as const;
 
 /** Agon's own route section headers — their bullets are regenerated, never kept. */
@@ -145,7 +150,9 @@ export function programDetailLines(
 ): string[] {
   if (sessionKind === 'bike') {
     const leg = commuteLegOf(sessionType);
-    return [escapeHtml(leg ? COMMUTE_DETAIL[leg] : BIKE_DEFAULT_DETAIL)];
+    return leg
+      ? COMMUTE_DETAIL[leg].map(escapeHtml)
+      : [escapeHtml(BIKE_DEFAULT_DETAIL)];
   }
   if (sessionKind !== 'lift') return [];
   const lift = getLiftDetail(sessionType);
