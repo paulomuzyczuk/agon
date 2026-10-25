@@ -54,7 +54,13 @@ design reference.
   module-scoped state, correct for a single long-running process not
   stateless serverless), `cookie.ts` (public-path allowlist: `/login`,
   `/api/auth/*`, `/api/health`, `/api/telegram/webhook`). `middleware.ts` is
-  the one choke point every request passes through. CSRF: `SameSite=Lax`
+  the one choke point every request passes through. **Its login redirect is
+  built from `X-Forwarded-Host`/`Host` + `X-Forwarded-Proto`, never from
+  `request.url` alone**: in the standalone build `request.url` carries the bind
+  address (`localhost:3100`), so behind `tailscale serve` a phone was bounced
+  to an unreachable host. It must also stay absolute — Next middleware throws
+  `ERR_INVALID_URL` on a relative `Location`
+  (`__tests__/lib/middlewareRedirect.test.ts`). CSRF: `SameSite=Lax`
   blocks the practical vector; a per-session CSRF secret exists in the
   payload but isn't wired into every mutating route yet (deliberate,
   documented scope cut — tracked in Linear.

@@ -36,7 +36,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   const cookie = request.cookies.get(SESSION_COOKIE)?.value;
   const { sessionTtlSeconds } = loadWebBindConfig();
-  const session = cookie ? await verifySessionCookie(cookie, signingKey, sessionTtlSeconds) : null;
+  const session = cookie
+    ? await verifySessionCookie(cookie, signingKey, sessionTtlSeconds)
+    : null;
 
   if (!session) return unauthorized(request, pathname);
   return NextResponse.next();
@@ -44,11 +46,51 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
 function unauthorized(request: NextRequest, pathname: string): NextResponse {
   if (pathname.startsWith('/api/')) {
-    return NextResponse.json({ error: 'authentication required' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'authentication required' },
+      { status: 401 },
+    );
   }
-  const loginUrl = new URL('/login', request.url);
+  return redirectToLogin(request, pathname);
+}
+
+// Built from the forwarded Host, never from request.url alone: in the
+// standalone build (HOSTNAME/PORT pinned by scripts/start-web.ts) request.url
+// carries the bind address — `localhost:3100` — not the host the client used,
+// so behind `tailscale serve` the phone was bounced to an address it cannot
+// reach. Next middleware rejects a relative Location (ERR_INVALID_URL), so the
+// origin has to be absolute. The host only decides where the caller's own
+// redirect points; nothing is cached or shared between requests.
+export function redirectToLogin(
+  request: NextRequest,
+  pathname: string,
+): NextResponse {
+  const host =
+    firstHeaderValue(request.headers.get('x-forwarded-host')) ??
+    request.headers.get('host');
+  const loginUrl = clientOrigin(request, host);
   loginUrl.searchParams.set('next', pathname);
   return NextResponse.redirect(loginUrl);
+}
+
+// Rebuilt from scratch rather than patching request.url: assigning `.host`
+// keeps the old port when the new host has none (…ts.net:3100).
+function clientOrigin(request: NextRequest, host: string | null): URL {
+  const fallback = new URL('/login', request.url);
+  if (!host) return fallback;
+  const forwarded = firstHeaderValue(request.headers.get('x-forwarded-proto'));
+  const proto =
+    forwarded === 'http' || forwarded === 'https' ? forwarded : 'http';
+  try {
+    return new URL(`${proto}://${host}/login`);
+  } catch {
+    return fallback; // malformed Host header
+  }
+}
+
+function firstHeaderValue(value: string | null): string | null {
+  const first = value?.split(',')[0]?.trim();
+  return first ? first : null;
 }
 
 export const config = {
