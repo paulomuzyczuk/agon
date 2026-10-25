@@ -166,9 +166,18 @@ const defaultDeps: CalendarSyncDeps = {
   },
 };
 
-/** Today as YYYY-MM-DD (default sync floor — future sessions only). */
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * How far back the default sync window reaches. A run is often dragged on the
+ * day it happens (or after), once its date has left a today-onward window:
+ * reconcile never read the edit and the companion "🧃 Fueling" event stayed at
+ * the old slot (e.g. a long run moved 14:00 → 17:30 kept its fueling at 15:04).
+ */
+export const SYNC_LOOKBACK_DAYS = 3;
+
+/** The default sync floor, YYYY-MM-DD: SYNC_LOOKBACK_DAYS before `now`. */
+export function defaultSyncFromISO(now: Date = new Date()): string {
+  const d = new Date(now.getTime() - SYNC_LOOKBACK_DAYS * 86_400_000);
+  return d.toISOString().slice(0, 10);
 }
 
 export interface CalendarSyncOptions {
@@ -188,7 +197,7 @@ export async function syncTrainingCalendar(
   opts: CalendarSyncOptions = {},
   deps: CalendarSyncDeps = defaultDeps,
 ): Promise<CalendarSyncSummary> {
-  const fromISO = opts.fromISO ?? todayISO();
+  const fromISO = opts.fromISO ?? defaultSyncFromISO();
   const timeZone = opts.timeZone ?? DEFAULT_TIME_ZONE;
 
   const token = await deps.getAccessToken();

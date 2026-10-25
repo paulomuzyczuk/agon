@@ -1,4 +1,6 @@
 import {
+  defaultSyncFromISO,
+  SYNC_LOOKBACK_DAYS,
   syncTrainingCalendar,
   type CalendarSyncDeps,
 } from '@/services/googleCalendar/sync';
@@ -444,5 +446,19 @@ describe('deleteEvent tolerance', () => {
     expect(calls.reconciled).toEqual(['2026-07-29']);
     expect(calls.order).toEqual(['reconcile', 'getSessions']);
     expect(summary.reconciled).toMatchObject({ moved: 1, skipped: 1 });
+  });
+  it('defaults the window to a few days back, so a run moved on its own day still reconciles', async () => {
+    // Regression: a today-onward floor never read a run dragged on the day it
+    // happened, leaving its "🧃 Fueling" event at the old slot.
+    const { deps, calls } = makeDeps([row({ gcalEventId: 'evt-a' })]);
+    await syncTrainingCalendar({ reconcile: true }, deps);
+    expect(calls.reconciled).toEqual([defaultSyncFromISO()]);
+    expect(SYNC_LOOKBACK_DAYS).toBeGreaterThan(0);
+  });
+
+  it('computes the default floor SYNC_LOOKBACK_DAYS before now', () => {
+    expect(defaultSyncFromISO(new Date('2026-10-05T08:00:00Z'))).toBe(
+      '2026-10-02',
+    );
   });
 });
