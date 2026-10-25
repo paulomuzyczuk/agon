@@ -104,10 +104,19 @@ const QUALITY_RUNS: Record<string, string[]> = {
     'Main: 5×1000 m @ 5K pace, 400 m jog recovery',
     'Cool-down: 2 km easy',
   ],
+  time_trial: [
+    // Monthly time trials (lib/training/timeTrials.ts) — the target distance is
+    // the trial itself; warm-up and cool-down come on top of it.
+    'Warm-up: 2 km easy + 4×100 m strides',
+    'Main: the target distance all-out, even pacing — flattest route below',
+    'Cool-down: 1–2 km easy',
+  ],
 };
 
 /** Exercises for a lift session type, or null if the type isn't a known lift. */
-export function getLiftDetail(sessionType: string | null): LiftExercise[] | null {
+export function getLiftDetail(
+  sessionType: string | null,
+): LiftExercise[] | null {
   if (!sessionType) return null;
   return LIFT_SESSIONS[sessionType] ?? null;
 }

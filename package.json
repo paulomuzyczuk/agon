@@ -30,6 +30,7 @@
     "seed:fueling": "tsx scripts/seed-fueling.ts",
     "seed:planned": "tsx scripts/seed-planned-sessions.ts",
     "seed:commutes": "tsx scripts/seed-commutes.ts",
+    "seed:time-trials": "tsx scripts/seed-time-trials.ts",
     "seed:foods": "tsx scripts/seed-foods.ts",
     "seed:meals": "tsx scripts/seed-meal-templates.ts",
     "seed:nutrition-goals": "tsx scripts/seed-nutrition-goals.ts",

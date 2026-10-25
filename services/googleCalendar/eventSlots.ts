@@ -42,6 +42,10 @@ const PACE_MIN_PER_KM: Record<string, number> = {
   vo2max: 5.5,
 };
 const DEFAULT_PACE = 6.0;
+// A time trial runs faster than any training pace, but the event also has to
+// hold the warm-up (2 km + strides) and cool-down around it.
+const TIME_TRIAL_PACE = 5.0;
+const TIME_TRIAL_EXTRA_MIN = 25;
 
 export const pad = (n: number): string => String(n).padStart(2, '0');
 
@@ -79,6 +83,9 @@ export function estimateRunMinutes(
   sessionType: string | null,
 ): number {
   if (distanceKm === null) return 45; // shouldn't happen for a run; safe default
+  if (sessionType === 'time_trial') {
+    return Math.round(distanceKm * TIME_TRIAL_PACE) + TIME_TRIAL_EXTRA_MIN;
+  }
   const pace = PACE_MIN_PER_KM[sessionType ?? ''] ?? DEFAULT_PACE;
   return Math.max(MIN_RUN_MIN, Math.round(distanceKm * pace));
 }

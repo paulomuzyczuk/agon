@@ -48,7 +48,8 @@ export type SessionType =
   | 'pull'
   | 'legs'
   | 'commute_to_work'
-  | 'commute_home';
+  | 'commute_home'
+  | 'time_trial';
 
 /** One session in a block's weekly template. A day may hold a run and a lift. */
 interface TemplateSlot {
