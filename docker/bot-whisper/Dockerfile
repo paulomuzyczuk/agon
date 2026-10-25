@@ -22,7 +22,11 @@ WORKDIR /w
 RUN git init -q . \
     && git fetch -q --depth 1 https://github.com/ggml-org/whisper.cpp "${WHISPER_CPP_COMMIT}" \
     && git checkout -q FETCH_HEAD
-RUN cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release \
+# On aarch64 (an ARM Linux host, or Docker Desktop on Apple Silicon) ggml's native CPU detection
+# enables fp16fml but not fp16, and gcc 12 then fails to compile ggml-cpu ("target specific option
+# mismatch" on vfmaq_f16). Turn detection off there; amd64 keeps it, as tested.
+RUN native=""; [ "$(uname -m)" = "aarch64" ] && native="-DGGML_NATIVE=OFF"; \
+    cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release $native \
     && cmake --build build -j"$(nproc)" --config Release --target whisper-cli
 
 FROM node:22-slim AS whisper-model

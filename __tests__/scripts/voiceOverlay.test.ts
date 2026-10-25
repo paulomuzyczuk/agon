@@ -6,7 +6,10 @@ import { join } from 'path';
 // downloads at build time must be pinned and verified.
 
 const root = join(__dirname, '../..');
-const dockerfile = readFileSync(join(root, 'docker/bot-whisper/Dockerfile'), 'utf8');
+const dockerfile = readFileSync(
+  join(root, 'docker/bot-whisper/Dockerfile'),
+  'utf8',
+);
 const overlay = readFileSync(join(root, 'docker-compose.voice.yml'), 'utf8');
 
 describe('voice overlay', () => {
@@ -31,7 +34,18 @@ describe('voice overlay', () => {
       expect(dockerfile).toMatch(new RegExp(`${size}\\) +sha=[0-9a-f]{64} ;;`));
     }
     expect(dockerfile).toContain('sha256sum -c -');
-    expect(dockerfile).toMatch(/AGON_WHISPER_MODEL must be tiny, base, small or medium/);
+    expect(dockerfile).toMatch(
+      /AGON_WHISPER_MODEL must be tiny, base, small or medium/,
+    );
+  });
+
+  it('turns off ggml native CPU detection on aarch64 only, where it breaks the gcc 12 build', () => {
+    // Without it the build fails on ARM hosts ("target specific option mismatch", vfmaq_f16),
+    // found when the overlay was first built on Apple Silicon. amd64 keeps native detection.
+    expect(dockerfile).toMatch(
+      /\[ "\$\(uname -m\)" = "aarch64" \] && native="-DGGML_NATIVE=OFF"/,
+    );
+    expect(dockerfile).toMatch(/cmake -B build [^\n]*\$native/);
   });
 
   it('keeps the runtime image non-root', () => {
