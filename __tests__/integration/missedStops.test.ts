@@ -1,3 +1,4 @@
+import { logger } from '@/services/logger';
 import { loadEnv } from '@/scripts/loadEnv';
 import { query, closeDbPool } from '@/services/db';
 import { upsertRide } from '@/services/strava/rideIngest';
@@ -201,6 +202,43 @@ describe('Telegram nudge', () => {
     expect(sent.filter(([, t]) => t.includes(`/trim_${s!.shortId}`))).toEqual(
       [],
     );
+  });
+
+  it('warns, and keeps the suggestion pending, when the owner chat is not configured', async () => {
+    const id = await seedRide(`${EXT}-e`);
+    const [s] = await ours([id]);
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    const send = jest.fn();
+    delete process.env.TELEGRAM_OWNER_CHAT_ID;
+    try {
+      expect(await notifyOpenSuggestions(send)).toBe(0);
+      expect(send).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('TELEGRAM_OWNER_CHAT_ID'),
+        expect.objectContaining({ hasChatId: false, hasToken: true }),
+      );
+      const { rows } = await query<{ notified_at: string | null }>(
+        'SELECT notified_at FROM public.missed_stop_suggestions WHERE id = $1',
+        [s!.id],
+      );
+      expect(rows[0]!.notified_at).toBeNull();
+    } finally {
+      process.env.TELEGRAM_OWNER_CHAT_ID = ENV.TELEGRAM_OWNER_CHAT_ID;
+      warn.mockRestore();
+    }
+  });
+
+  it('stays quiet when nothing is pending, even unconfigured', async () => {
+    await notifyOpenSuggestions(async () => {}); // drain whatever earlier tests left
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    delete process.env.TELEGRAM_OWNER_CHAT_ID;
+    try {
+      expect(await notifyOpenSuggestions(jest.fn())).toBe(0);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      process.env.TELEGRAM_OWNER_CHAT_ID = ENV.TELEGRAM_OWNER_CHAT_ID;
+      warn.mockRestore();
+    }
   });
 
   it('never throws from the post-sync hook, even when sending fails', async () => {

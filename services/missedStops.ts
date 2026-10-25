@@ -214,23 +214,35 @@ export type SendFn = (chatId: number, text: string) => Promise<void>;
 
 /**
  * Send the Telegram nudge for every open suggestion not yet notified. Skipped
- * (and retried next sync) when the bot token or owner chat isn't configured.
+ * (and retried next sync) when the bot token or owner chat isn't configured —
+ * with a warning, so a missing TELEGRAM_OWNER_CHAT_ID can't silently swallow
+ * the nudges (2026-10-18: a suggestion sat un-notified with no trace).
  */
 export async function notifyOpenSuggestions(
   send: SendFn = (chatId, text) => telegramSend(chatId, text),
 ): Promise<number> {
+  const { rows } = await query<SuggestionRow>(
+    `${SELECT_SUGGESTION} WHERE m.status = 'open' AND m.notified_at IS NULL
+      ORDER BY m.short_id`,
+  );
+  if (rows.length === 0) return 0;
   const chatId = Number(process.env.TELEGRAM_OWNER_CHAT_ID);
   if (
     !Number.isFinite(chatId) ||
     chatId === 0 ||
     !process.env.TELEGRAM_BOT_TOKEN
   ) {
+    logger.warn(
+      'missed-stop nudge skipped — set TELEGRAM_OWNER_CHAT_ID and TELEGRAM_BOT_TOKEN in .env.local',
+      {
+        job: 'missed-stops',
+        pending: rows.length,
+        hasToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+        hasChatId: Number.isFinite(chatId) && chatId !== 0,
+      },
+    );
     return 0;
   }
-  const { rows } = await query<SuggestionRow>(
-    `${SELECT_SUGGESTION} WHERE m.status = 'open' AND m.notified_at IS NULL
-      ORDER BY m.short_id`,
-  );
   let sent = 0;
   for (const r of rows) {
     await send(chatId, nudgeText(toStored(r)));
