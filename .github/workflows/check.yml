@@ -24,6 +24,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # MZY-396: no `KEY=   # comment` lines in .env.example (Compose reads the comment as the value).
+      - run: sh scripts/check-env-example.sh
       - run: pnpm typecheck
       # Complexity over 10 is a warning. --max-warnings is the ratchet: 90 was the
       # count on 2026-10-08 (89 on 2026-10-15), and it may only go down. Lower it
