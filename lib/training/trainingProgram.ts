@@ -31,6 +31,7 @@ export type SessionKind = 'run' | 'lift' | 'rest' | 'bike';
 /**
  * `target_session_type` vocabulary. Runs: intensity/kind. Lifts: the session
  * label for the block's split (A/B/C full-body, upper/lower, push/pull/legs).
+ * Bikes: the commute legs (lib/training/commutes.ts); a training ride has none.
  */
 export type SessionType =
   | 'easy'
@@ -45,7 +46,9 @@ export type SessionType =
   | 'lower'
   | 'push'
   | 'pull'
-  | 'legs';
+  | 'legs'
+  | 'commute_to_work'
+  | 'commute_home';
 
 /** One session in a block's weekly template. A day may hold a run and a lift. */
 interface TemplateSlot {

@@ -20,7 +20,6 @@ const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mjs'];
 const EXEMPTIONS = {
   'lib/movingTime.ts': 555,
   'services/routing/generate.ts': 515,
-  'services/googleCalendar/eventMap.ts': 506,
 };
 
 function sourceFiles(dir) {

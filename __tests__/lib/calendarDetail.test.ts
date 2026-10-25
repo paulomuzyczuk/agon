@@ -159,3 +159,41 @@ describe('push → reconcile round trip', () => {
     expect(programDetailLines('bike', null)).toHaveLength(1);
   });
 });
+
+describe('commute ride detail', () => {
+  it('gives each leg its own program detail', () => {
+    expect(programDetailLines('bike', 'commute_to_work')[0]).toMatch(/fastest/);
+    expect(programDetailLines('bike', 'commute_home')[0]).toMatch(/longer way/);
+  });
+
+  it("treats Agon's commute route section as Agon's, not the athlete's", () => {
+    const e = mapSessionToEvent(
+      {
+        date: '2026-10-20',
+        block: null,
+        week: null,
+        sessionKind: 'bike',
+        description: 'Commute ride — to work',
+        targetDistanceKm: null,
+        targetHrCap: null,
+        targetSessionType: 'commute_to_work',
+      },
+      {
+        routes: [
+          {
+            mapsUrl: 'https://maps.example/c1',
+            distanceKm: 8.4,
+            elevationGainM: null,
+          },
+        ],
+      },
+    );
+    // Round-tripping our own description must not read as a hand edit.
+    expect(
+      sameDetail(
+        extractAthleteDetail(descriptionToLines(e.description)),
+        programDetailLines('bike', 'commute_to_work'),
+      ),
+    ).toBe(true);
+  });
+});

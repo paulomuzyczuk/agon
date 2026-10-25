@@ -37,14 +37,14 @@ describe('estimateRunMinutes', () => {
 });
 
 describe('mapSessionToEvent — runs', () => {
-  it('places a midday timed event with Berlin timezone', () => {
+  it('places an evening timed event with Berlin timezone', () => {
     const e = mapSessionToEvent(base);
     expect(e.start).toEqual({
-      dateTime: '2026-07-29T12:00:00',
+      dateTime: '2026-07-29T19:00:00',
       timeZone: DEFAULT_TIME_ZONE,
     });
-    // 8.5 km × 6.0 = 51 min → 12:51
-    expect(e.end.dateTime).toBe('2026-07-29T12:51:00');
+    // 8.5 km × 6.0 = 51 min → 19:51
+    expect(e.end.dateTime).toBe('2026-07-29T19:51:00');
   });
 
   it('puts distance in the summary and targets in the description', () => {
@@ -67,7 +67,7 @@ describe('mapSessionToEvent — runs', () => {
     expect(e.description).toContain('Warm-up: 2 km easy');
     expect(e.description).toContain('5×1000 m @ 5K pace, 400 m jog recovery');
     expect(e.description).toContain('Cool-down: 2 km easy');
-    expect(e.end.dateTime).toBe('2026-07-29T12:55:00'); // 10 × 5.5 = 55 min
+    expect(e.end.dateTime).toBe('2026-07-29T19:55:00'); // 10 × 5.5 = 55 min
   });
 });
 
@@ -407,7 +407,7 @@ describe('mapSessionToEvent — options', () => {
 describe('mapSessionToEvent — per-session start time', () => {
   it('leaves the event at the default slot when there is no preferred time', () => {
     const e = mapSessionToEvent(base);
-    expect(e.start.dateTime).toBe('2026-07-29T12:00:00');
+    expect(e.start.dateTime).toBe('2026-07-29T19:00:00');
     expect(e.description).not.toContain('⏰');
   });
 
@@ -422,7 +422,7 @@ describe('mapSessionToEvent — per-session start time', () => {
     // The duration still applies from the new start (8.5 km easy = 51 min).
     expect(e.end.dateTime).toBe('2026-07-29T06:36:00');
     expect(e.description).toContain(
-      '⏰ Moved to 05:45 (normally 12:00) — Cyprus heat — 40 °C by midday',
+      '⏰ Moved to 05:45 (normally 19:00) — Cyprus heat — 40 °C by midday',
     );
   });
 
@@ -433,20 +433,20 @@ describe('mapSessionToEvent — per-session start time', () => {
       startTimePriority: 'suggested',
       startTimeReason: 'cooler and quieter',
     });
-    expect(e.start.dateTime).toBe('2026-07-29T12:00:00'); // untouched
+    expect(e.start.dateTime).toBe('2026-07-29T19:00:00'); // untouched
     expect(e.description).toContain(
-      '⏰ Suggestion: start at 06:15 rather than 12:00 — cooler and quieter',
+      '⏰ Suggestion: start at 06:15 rather than 19:00 — cooler and quieter',
     );
   });
 
   it('says nothing when the preferred time equals the default', () => {
     const e = mapSessionToEvent({
       ...base,
-      startTime: '12:00',
+      startTime: '19:00',
       startTimePriority: 'strong',
-      startTimeReason: 'noon is fine',
+      startTimeReason: 'evening is fine',
     });
-    expect(e.start.dateTime).toBe('2026-07-29T12:00:00');
+    expect(e.start.dateTime).toBe('2026-07-29T19:00:00');
     expect(e.description).not.toContain('⏰');
   });
 
@@ -467,7 +467,7 @@ describe('mapSessionToEvent — per-session start time', () => {
       startTimePriority: 'strong',
       startTimeReason: 'heat',
     });
-    expect(e.start.dateTime).toBe('2026-07-29T12:00:00');
+    expect(e.start.dateTime).toBe('2026-07-29T19:00:00');
     expect(e.description).not.toContain('⏰');
   });
 
@@ -479,7 +479,7 @@ describe('mapSessionToEvent — per-session start time', () => {
       startTimeReason: null,
     });
     expect(e.description).toContain(
-      '⏰ Suggestion: start at 07:00 rather than 12:00',
+      '⏰ Suggestion: start at 07:00 rather than 19:00',
     );
   });
 
@@ -504,7 +504,7 @@ describe('mapRunToFuelingEvent', () => {
     ...base,
     description: 'Long easy run',
     targetSessionType: 'long',
-    targetDistanceKm: 20, // 20 × 6.3 = 126 min → 12:00-14:06, midpoint 13:03
+    targetDistanceKm: 20, // 20 × 6.3 = 126 min → 19:00-21:06, midpoint 20:03
   };
 
   it('returns null for a non-run session', () => {
@@ -524,10 +524,10 @@ describe('mapRunToFuelingEvent', () => {
     const runEvent = mapSessionToEvent(longRun);
     const fuelingEvent = mapRunToFuelingEvent(longRun, runEvent);
     expect(fuelingEvent?.start).toEqual({
-      dateTime: '2026-07-29T13:03:00',
+      dateTime: '2026-07-29T20:03:00',
       timeZone: DEFAULT_TIME_ZONE,
     });
-    expect(fuelingEvent?.end.dateTime).toBe('2026-07-29T13:08:00'); // +5 min
+    expect(fuelingEvent?.end.dateTime).toBe('2026-07-29T20:08:00'); // +5 min
   });
 
   it('doses via estimateFuelingBottles and names the bottle count in the summary', () => {
@@ -546,5 +546,60 @@ describe('mapRunToFuelingEvent', () => {
     const runEvent = mapSessionToEvent(at15);
     const fuelingEvent = mapRunToFuelingEvent(at15, runEvent);
     expect(fuelingEvent?.summary).toBe('🧃 Fueling — 2 bottles');
+  });
+});
+
+describe('mapSessionToEvent — commute rides', () => {
+  const commute = (
+    targetSessionType: 'commute_to_work' | 'commute_home',
+  ): PlannedSessionForEvent => ({
+    date: '2026-10-20',
+    block: null,
+    week: null,
+    sessionKind: 'bike',
+    description:
+      targetSessionType === 'commute_to_work'
+        ? 'Commute ride — to work'
+        : 'Commute ride — home',
+    targetDistanceKm: null,
+    targetHrCap: null,
+    targetSessionType,
+  });
+
+  it('puts the ride to work at 08:30 for half an hour', () => {
+    const e = mapSessionToEvent(commute('commute_to_work'));
+    expect(e.start.dateTime).toBe('2026-10-20T08:30:00');
+    expect(e.end.dateTime).toBe('2026-10-20T09:00:00');
+    expect(e.summary).toBe('🚴 Commute ride — to work');
+  });
+
+  it('brings the ride home in at 19:00, when the run slot starts', () => {
+    const e = mapSessionToEvent(commute('commute_home'));
+    expect(e.start.dateTime).toBe('2026-10-20T18:30:00');
+    expect(e.end.dateTime).toBe('2026-10-20T19:00:00');
+    const run = mapSessionToEvent({ ...base, date: '2026-10-20' });
+    expect(run.start.dateTime).toBe(e.end.dateTime);
+  });
+
+  it('lists routes under a commute header, not "from home"', () => {
+    const e = mapSessionToEvent(commute('commute_home'), {
+      routes: [
+        { mapsUrl: 'https://maps.example/c1', distanceKm: 8.4, elevationGainM: null },
+      ],
+    });
+    expect(e.description).toContain('🗺️ Commute routes:');
+    expect(e.description).not.toContain('Suggested routes from home');
+    expect(e.description).not.toContain('Zone 2 spin');
+  });
+
+  it('still lets a strong preferred time move a commute', () => {
+    const e = mapSessionToEvent({
+      ...commute('commute_to_work'),
+      startTime: '07:45',
+      startTimePriority: 'strong',
+      startTimeReason: 'early meeting',
+    });
+    expect(e.start.dateTime).toBe('2026-10-20T07:45:00');
+    expect(e.description).toContain('⏰ Moved to 07:45 (normally 08:30) — early meeting');
   });
 });

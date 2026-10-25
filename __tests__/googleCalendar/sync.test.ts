@@ -335,9 +335,9 @@ describe('fueling companion event', () => {
       start: { dateTime: string };
       end: { dateTime: string };
     };
-    // 20 km at the 'easy' sizing pace (6.0 min/km) → 120 min, noon start →
-    // midpoint 13:00.
-    expect(fuelingEvent.start.dateTime).toContain('T13:00:00');
+    // 20 km at the 'easy' sizing pace (6.0 min/km) → 120 min, 19:00 start →
+    // midpoint 20:00.
+    expect(fuelingEvent.start.dateTime).toContain('T20:00:00');
   });
 
   it('omits the fueling event for a run below the threshold', async () => {

@@ -1,4 +1,10 @@
-import { suggestRoutes, type RouteProfile } from '../routing';
+import {
+  suggestRoutes,
+  type RouteProfile,
+  type SuggestRoutesResult,
+} from '../routing';
+import { homeLocationOrNull, workLocationOrNull } from '../routing/config';
+import { commuteLegOf, type CommuteLeg } from '../../lib/training/commutes';
 import { describeRouteVia, buildRouteLabel } from '../routing/routeDescription';
 import {
   saveSuggestionBatch,
@@ -55,6 +61,18 @@ function inferBikeTargetKm(): number {
   return (BIKE_ASSUMED_DURATION_MIN / 60) * EASY_BIKE_SPEED_KMH;
 }
 
+// Commute rides are one-way, home ↔ work (lib/training/commutes.ts). Route 1 is
+// always the direct (fastest) ride; the others are the same ride stretched by a
+// detour. Mornings stay close to direct — getting to work is the point — while
+// evenings may wander (athlete's request, 2026-10-15).
+const COMMUTE_STRETCH: Record<CommuteLeg, number> = {
+  commute_to_work: 1.12,
+  commute_home: 1.5,
+};
+// A variant within this fraction of the direct ride's length is the direct ride
+// again (a stretch too small to detour returns the spine itself).
+const SAME_ROUTE_FRACTION = 0.02;
+
 /** Deps seam so the sync can be unit-tested without the routing API or a DB. */
 export interface RouteForSessionDeps {
   getAttached: typeof getAttachedRoutes;
@@ -63,6 +81,9 @@ export interface RouteForSessionDeps {
   describeVia: typeof describeRouteVia;
   save: typeof saveSuggestionBatch;
   attach: typeof attachSuggestionToPlannedSession;
+  /** Commute endpoints; null when the env doesn't set them. */
+  home: () => ReturnType<typeof homeLocationOrNull>;
+  work: () => ReturnType<typeof workLocationOrNull>;
 }
 
 const defaultDeps: RouteForSessionDeps = {
@@ -72,7 +93,44 @@ const defaultDeps: RouteForSessionDeps = {
   describeVia: describeRouteVia,
   save: saveSuggestionBatch,
   attach: attachSuggestionToPlannedSession,
+  home: homeLocationOrNull,
+  work: workLocationOrNull,
 };
+
+/**
+ * One-way commute candidates: the direct ride first, then up to two detoured
+ * variants (see COMMUTE_STRETCH). Null when home or work isn't configured.
+ */
+async function generateCommuteRoutes(
+  leg: CommuteLeg,
+  deps: RouteForSessionDeps,
+): Promise<SuggestRoutesResult | null> {
+  const home = deps.home();
+  const work = deps.work();
+  if (!home || !work) return null;
+  const [from, to] = leg === 'commute_to_work' ? [home, work] : [work, home];
+  const base = {
+    start: { coord: from },
+    finishNear: { coord: to },
+    profile: 'cycling-regular' as const,
+  };
+  // A target below the direct distance returns the direct route alone.
+  const direct = await deps.generate({ ...base, targetKm: 0.1, keep: 1 });
+  const spine = direct.candidates[0];
+  if (!spine) return null;
+  const variants = await deps.generate({
+    ...base,
+    targetKm: (spine.distanceM / 1000) * COMMUTE_STRETCH[leg],
+    keep: ROUTES_PER_SESSION - 1,
+    diverse: true,
+  });
+  const distinct = variants.candidates.filter(
+    (c) =>
+      Math.abs(c.distanceM - spine.distanceM) >
+      spine.distanceM * SAME_ROUTE_FRACTION,
+  );
+  return { ...variants, candidates: [spine, ...distinct] };
+}
 
 /**
  * Resolve the suggested routes for a session, or [] when it doesn't apply (not a
@@ -92,6 +150,8 @@ export async function ensureRoutesForSession(
   // A hand-written route in the session's detail is the athlete's own route
   // for it (MZY-262): don't pile auto loops from home on top of it.
   if (detailHasOwnRoute(session.detail)) return [];
+  const leg = isBike ? commuteLegOf(session.targetSessionType) : null;
+  if (leg) return ensureCommuteRoutes(session, leg, deps);
   const targetKm = isBike
     ? (session.targetDistanceKm ?? inferBikeTargetKm())
     : session.targetDistanceKm;
@@ -133,6 +193,49 @@ export async function ensureRoutesForSession(
     labels.push(buildRouteLabel(i + 1, c.distanceM / 1000, via, c.direction));
   }
 
+  return persistAndAttach(session, result, labels, deps);
+}
+
+/**
+ * The commute twin of the loop path above: reuse any attached set (a commute
+ * has no target distance to go stale against), else generate, describe, persist
+ * and attach the one-way routes.
+ */
+async function ensureCommuteRoutes(
+  session: CalendarSyncRow,
+  leg: CommuteLeg,
+  deps: RouteForSessionDeps,
+): Promise<EventRouteInfo[]> {
+  const existing = await deps.getAttached(session.id, 'auto');
+  if (existing.length > 0) {
+    return existing.slice(0, ROUTES_PER_SESSION).map(attachedRouteToEventInfo);
+  }
+  const result = await generateCommuteRoutes(leg, deps);
+  if (!result || result.candidates.length === 0) return [];
+
+  const labels: string[] = [];
+  for (let i = 0; i < result.candidates.length; i++) {
+    const c = result.candidates[i]!;
+    const via = await deps.describeVia(c.coordinates);
+    const label = buildRouteLabel(
+      i + 1,
+      c.distanceM / 1000,
+      via,
+      c.direction,
+      true,
+    );
+    labels.push(i === 0 ? `${label} (fastest)` : label);
+  }
+  return persistAndAttach(session, result, labels, deps);
+}
+
+/** Save a generated set, attach it to the session, and shape it for the event. */
+async function persistAndAttach(
+  session: CalendarSyncRow,
+  result: SuggestRoutesResult,
+  labels: string[],
+  deps: RouteForSessionDeps,
+): Promise<EventRouteInfo[]> {
   const { suggestions } = await deps.save(result, { labels });
   const infos: EventRouteInfo[] = [];
   for (let i = 0; i < suggestions.length; i++) {

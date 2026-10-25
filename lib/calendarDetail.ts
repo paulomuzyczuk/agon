@@ -1,4 +1,5 @@
 import { getLiftDetail } from './training/sessionDetails';
+import { commuteLegOf } from './training/commutes';
 
 // The "detail" block of a bike or lift calendar event (MZY-262): the exercise
 // list of a lift, the notes of a ride. The program writes a default one; the
@@ -14,9 +15,18 @@ import { getLiftDetail } from './training/sessionDetails';
 export const BIKE_DEFAULT_DETAIL =
   'Easy Zone 2 spin — low-impact aerobic reserve, not a training target';
 
+/** Commute legs' default detail: the morning is about arriving, the evening isn't. */
+export const COMMUTE_DETAIL = {
+  commute_to_work:
+    'Commute to work — fastest routes first; arrive fresh, not trained',
+  commute_home:
+    'Commute home — no clock to beat; take the longer way if you feel like it',
+} as const;
+
 /** Agon's own route section headers — their bullets are regenerated, never kept. */
 const AGON_ROUTE_HEADERS = [
   '🗺️ Suggested routes from home:',
+  '🗺️ Commute routes:',
   '🧭 Ad hoc routes:',
 ];
 
@@ -133,7 +143,10 @@ export function programDetailLines(
   sessionKind: 'run' | 'lift' | 'bike',
   sessionType: string | null,
 ): string[] {
-  if (sessionKind === 'bike') return [escapeHtml(BIKE_DEFAULT_DETAIL)];
+  if (sessionKind === 'bike') {
+    const leg = commuteLegOf(sessionType);
+    return [escapeHtml(leg ? COMMUTE_DETAIL[leg] : BIKE_DEFAULT_DETAIL)];
+  }
   if (sessionKind !== 'lift') return [];
   const lift = getLiftDetail(sessionType);
   if (lift)

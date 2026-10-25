@@ -76,7 +76,10 @@ describe('getAthleteProfile', () => {
 
   it('throws on a malformed trainingStartDate', () => {
     const path = join(dir, 'profile.json');
-    writeFileSync(path, JSON.stringify({ ...VALID_PROFILE, trainingStartDate: 'not-a-date' }));
+    writeFileSync(
+      path,
+      JSON.stringify({ ...VALID_PROFILE, trainingStartDate: 'not-a-date' }),
+    );
     process.env.AGON_ATHLETE_PROFILE_PATH = path;
 
     expect(() => getAthleteProfile()).toThrow();
@@ -116,9 +119,13 @@ describe('ftpHistory (MZY-269)', () => {
   });
 
   it('rejects an implausible watts value or a malformed date', () => {
-    expect(() => load({ ftpHistory: [{ watts: 5000, date: '2026-05-01' }] })).toThrow();
+    expect(() =>
+      load({ ftpHistory: [{ watts: 5000, date: '2026-05-01' }] }),
+    ).toThrow();
     _resetAthleteProfileCacheForTests();
-    expect(() => load({ ftpHistory: [{ watts: 240, date: '1 May' }] })).toThrow();
+    expect(() =>
+      load({ ftpHistory: [{ watts: 240, date: '1 May' }] }),
+    ).toThrow();
   });
 
   it('vo2maxMeasured is optional and bounded to a plausible range (MZY-303)', () => {
@@ -154,5 +161,62 @@ describe('ftpOn', () => {
   it('does not trust the file order', () => {
     expect(ftpOn('2026-05-31', history)).toBe(235);
     expect(ftpOn('2026-09-01', history)).toBe(250);
+  });
+});
+
+describe('getAthleteProfile — commute window', () => {
+  let dir: string;
+  const originalEnv = process.env.AGON_ATHLETE_PROFILE_PATH;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'agon-athlete-profile-'));
+    _resetAthleteProfileCacheForTests();
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    if (originalEnv === undefined) delete process.env.AGON_ATHLETE_PROFILE_PATH;
+    else process.env.AGON_ATHLETE_PROFILE_PATH = originalEnv;
+    _resetAthleteProfileCacheForTests();
+  });
+
+  function load(commute: unknown) {
+    const path = join(dir, 'profile.json');
+    writeFileSync(path, JSON.stringify({ ...VALID_PROFILE, commute }));
+    process.env.AGON_ATHLETE_PROFILE_PATH = path;
+    return getAthleteProfile();
+  }
+
+  it('accepts a well-formed window', () => {
+    const commute = {
+      weekdays: [2, 4],
+      from: '2026-10-15',
+      until: '2026-12-11',
+    };
+    expect(load(commute).commute).toEqual(commute);
+  });
+
+  it('rejects a window that ends before it starts', () => {
+    expect(() =>
+      load({ weekdays: [2], from: '2026-12-11', until: '2026-10-15' }),
+    ).toThrow(/commute.from must be on or before commute.until/);
+  });
+
+  it('rejects weekdays outside ISO 1–7 and an empty weekday list', () => {
+    expect(() =>
+      load({ weekdays: [0], from: '2026-10-15', until: '2026-12-11' }),
+    ).toThrow();
+    expect(() =>
+      load({ weekdays: [8], from: '2026-10-15', until: '2026-12-11' }),
+    ).toThrow();
+    expect(() =>
+      load({ weekdays: [], from: '2026-10-15', until: '2026-12-11' }),
+    ).toThrow();
+  });
+
+  it('rejects a malformed date', () => {
+    expect(() =>
+      load({ weekdays: [2], from: '15.10.2026', until: '2026-12-11' }),
+    ).toThrow();
   });
 });

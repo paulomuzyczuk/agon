@@ -64,6 +64,22 @@ const AthleteProfileSchema = z.object({
    * race-prediction report contrasts the effort-derived VDOT against.
    */
   vo2maxMeasured: z.number().min(20).max(100).optional(),
+  /**
+   * Bike commute to work, optional (lib/training/commutes.ts): on each listed
+   * ISO weekday (1=Mon … 7=Sun) between `from` and `until` inclusive, a ride to
+   * work in the morning and one home in the evening. The workplace itself is
+   * PII and lives in env (AGON_WORK_LAT/LNG), not here.
+   */
+  commute: z
+    .object({
+      weekdays: z.array(z.number().int().min(1).max(7)).min(1),
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })
+    .refine((c) => c.from <= c.until, {
+      message: 'commute.from must be on or before commute.until',
+    })
+    .optional(),
 });
 
 export type AthleteProfile = z.infer<typeof AthleteProfileSchema>;

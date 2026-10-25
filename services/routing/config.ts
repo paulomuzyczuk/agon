@@ -6,14 +6,26 @@ import type { Coord } from './types';
 // (services/weather/enrich.ts, MZY-226) — one source of truth for "home". Kept
 // out of the repo (a home address is PII): env only, no committed default.
 
-/** Home from env, or null when unset — for callers that can do without it. */
-export function homeLocationOrNull(): Coord | null {
-  const rawLat = process.env.AGON_HOME_LAT;
-  const rawLng = process.env.AGON_HOME_LNG;
+function coordFromEnv(latVar: string, lngVar: string): Coord | null {
+  const rawLat = process.env[latVar];
+  const rawLng = process.env[lngVar];
   if (!rawLat || !rawLng) return null;
   const lat = Number(rawLat);
   const lng = Number(rawLng);
   return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+}
+
+/** Home from env, or null when unset — for callers that can do without it. */
+export function homeLocationOrNull(): Coord | null {
+  return coordFromEnv('AGON_HOME_LAT', 'AGON_HOME_LNG');
+}
+
+/**
+ * Workplace (AGON_WORK_LAT/LNG), the far end of a commute ride, or null when
+ * unset. Same PII rule as home: env only, no committed default.
+ */
+export function workLocationOrNull(): Coord | null {
+  return coordFromEnv('AGON_WORK_LAT', 'AGON_WORK_LNG');
 }
 
 export function homeLocation(): Coord {

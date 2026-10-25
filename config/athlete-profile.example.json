@@ -12,6 +12,7 @@
   "startingWeightKg": 80,
   "startingBodyFatPct": 20,
   "vo2maxMeasured": 50,
+  "commute": { "weekdays": [2, 4], "from": "2026-01-06", "until": "2026-06-26" },
   "ftpHistory": [
     { "watts": 220, "date": "2026-01-05" },
     { "watts": 235, "date": "2026-03-02" }

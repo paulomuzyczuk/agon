@@ -10,68 +10,35 @@ import {
   CARBS_G_PER_H_MAX,
   FUELING_BASE_BOTTLES,
   FUELING_BOTTLE_STEP_KM,
-  BIKE_ASSUMED_DURATION_MIN,
-  EASY_BIKE_SPEED_KMH,
 } from '../../lib/constants';
 import { getAthleteProfile } from '../../lib/athleteProfile';
+import { commuteLegOf } from '../../lib/training/commutes';
+import {
+  defaultStart,
+  effectiveStart,
+  pad,
+  sessionDurationMin,
+  startTimeNote,
+} from './eventSlots';
+
+export {
+  parseClockTime,
+  estimateRunMinutes,
+  startTimeNote,
+  effectiveStart,
+  effectiveStartTime,
+} from './eventSlots';
 
 // Pure mapping from a planned training session to a timed Google Calendar event.
-// planned_sessions carries a date but no clock time, so we assign sensible
-// defaults (runs around noon, lifts late evening) and estimate a run's duration
-// from its distance. The description carries the full session detail — exercises
+// The slot and length come from ./eventSlots.ts (planned_sessions carries a date
+// but no clock time). The description carries the full session detail — exercises
 // (sets × reps) for lifts, interval structure for quality runs — from the static
 // session library. Kept pure (no DB, no Date.now) so it's unit-tested directly
 // and the sync layer only handles I/O.
 
 export const DEFAULT_TIME_ZONE = 'Europe/Berlin'; // athlete is in Berlin
-const RUN_START_HOUR = 12; // 12:00 local (around noon)
-const LIFT_START_HOUR = 22; // 22:00 local (10 PM) on weekdays
-const LIFT_WEEKEND_START_HOUR = 19; // 19:30 local on Sat/Sun — no late weeknight
-const LIFT_WEEKEND_START_MIN = 30;
-const LIFT_DURATION_MIN = 60;
-const BIKE_START_HOUR = 17; // 17:00 local — distinct slot, no run/lift overlap on bike days
-const BIKE_DURATION_MIN = BIKE_ASSUMED_DURATION_MIN;
-const MIN_RUN_MIN = 30;
-
-/** A wall-clock time of day. */
-interface ClockTime {
-  hour: number;
-  minute: number;
-}
-
-/** "HH:MM" / "HH:MM:SS" → clock time, or null when absent or malformed. */
-export function parseClockTime(
-  raw: string | null | undefined,
-): ClockTime | null {
-  if (!raw) return null;
-  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw.trim());
-  if (!m) return null;
-  const hour = Number(m[1]);
-  const minute = Number(m[2]);
-  if (hour > 23 || minute > 59) return null;
-  return { hour, minute };
-}
-
-/** "05:45" for display. */
-function formatClockTime(t: ClockTime): string {
-  return `${pad(t.hour)}:${pad(t.minute)}`;
-}
-
-/** True for a Saturday or Sunday (UTC — the date is a plain calendar day). */
-function isWeekend(dateISO: string): boolean {
-  const day = new Date(`${dateISO}T00:00:00Z`).getUTCDay(); // 0=Sun … 6=Sat
-  return day === 0 || day === 6;
-}
-
-// Rough easy/quality paces (min/km) to turn distance into a calendar block. These
-// only size the event — they are not training targets.
-const PACE_MIN_PER_KM: Record<string, number> = {
-  easy: 6.0,
-  long: 6.3,
-  intervals: 5.5, // tempo incl. warm-up/cool-down
-  vo2max: 5.5,
-};
-const DEFAULT_PACE = 6.0;
+const HOME_ROUTES_HEADER = '🗺️ Suggested routes from home:';
+const COMMUTE_ROUTES_HEADER = '🗺️ Commute routes:';
 
 /** How firmly a session's preferred start time should be applied. */
 export type StartTimePriority = 'strong' | 'suggested';
@@ -141,13 +108,6 @@ export interface EventMapOptions {
 }
 
 /** Escape text for safe HTML body content (the description is rendered as HTML). */
-/** A bike session's length: its distance at an easy spin, else the flat default. */
-function bikeMinutes(distanceKm: number | null): number {
-  return distanceKm !== null && distanceKm > 0
-    ? Math.round((distanceKm / EASY_BIKE_SPEED_KMH) * 60)
-    : BIKE_DURATION_MIN;
-}
-
 function htmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -156,8 +116,6 @@ function htmlEscape(s: string): string {
 function attrEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
-
-const pad = (n: number): string => String(n).padStart(2, '0');
 
 /** "YYYY-MM-DDTHH:MM:SS" local wall-clock (the timeZone field carries the zone). */
 /**
@@ -190,16 +148,6 @@ function addMinutes(
   return { hour: Math.floor(total / 60), minute: total % 60 };
 }
 
-/** Estimated run duration (minutes) from distance + session type. */
-export function estimateRunMinutes(
-  distanceKm: number | null,
-  sessionType: string | null,
-): number {
-  if (distanceKm === null) return 45; // shouldn't happen for a run; safe default
-  const pace = PACE_MIN_PER_KM[sessionType ?? ''] ?? DEFAULT_PACE;
-  return Math.max(MIN_RUN_MIN, Math.round(distanceKm * pace));
-}
-
 const emojiFor = (kind: 'run' | 'lift' | 'bike'): string =>
   kind === 'run' ? '🏃' : kind === 'bike' ? '🚴' : '🏋️';
 
@@ -227,50 +175,6 @@ function renderRouteSection(
       `• <a href="${attrEscape(r.mapsUrl)}">${htmlEscape(linkText)}</a>`,
     );
   });
-}
-
-function sameClockTime(a: ClockTime, b: ClockTime): boolean {
-  return a.hour === b.hour && a.minute === b.minute;
-}
-
-/** The slot a session occupies with no per-session override applied. */
-function defaultStart(
-  s: PlannedSessionForEvent,
-  opts: EventMapOptions,
-): ClockTime {
-  // Runs at noon; bike rides late afternoon; weekday lifts late evening (22:00),
-  // weekend lifts earlier (19:30).
-  if (s.sessionKind === 'run') {
-    return { hour: opts.runStartHour ?? RUN_START_HOUR, minute: 0 };
-  }
-  if (s.sessionKind === 'bike') {
-    return { hour: BIKE_START_HOUR, minute: 0 };
-  }
-  if (isWeekend(s.date)) {
-    return { hour: LIFT_WEEKEND_START_HOUR, minute: LIFT_WEEKEND_START_MIN };
-  }
-  return { hour: opts.liftStartHour ?? LIFT_START_HOUR, minute: 0 };
-}
-
-/**
- * The description line explaining this session's timing, or null when there is
- * nothing to say (no preferred time, or it matches the default anyway).
- *
- * A moved event ALWAYS explains itself — finding a session at a new hour with no
- * stated reason is worse than not moving it. A suggestion states both times so
- * the athlete can judge the trade-off rather than being told.
- */
-export function startTimeNote(
-  s: PlannedSessionForEvent,
-  base: ClockTime,
-): string | null {
-  const preferred = parseClockTime(s.startTime);
-  if (!preferred || sameClockTime(preferred, base)) return null;
-  const reason = s.startTimeReason?.trim();
-  const because = reason ? ` — ${reason}` : '';
-  return s.startTimePriority === 'strong'
-    ? `⏰ Moved to ${formatClockTime(preferred)} (normally ${formatClockTime(base)})${because}`
-    : `⏰ Suggestion: start at ${formatClockTime(preferred)} rather than ${formatClockTime(base)}${because}`;
 }
 
 // The description is HTML (Google Calendar renders it): plain lines are escaped
@@ -331,7 +235,7 @@ function buildDescription(
       for (const d of runDetail) text(d);
     }
     // Two route sections: auto loops from home, then any ad-hoc /route requests.
-    renderRouteSection(html, '🗺️ Suggested routes from home:', routes ?? []);
+    renderRouteSection(html, HOME_ROUTES_HEADER, routes ?? []);
     renderRouteSection(html, '🧭 Ad hoc routes:', adHocRoutes ?? []);
   } else {
     // Bike notes / lift exercises (one per row): the athlete's hand-edited
@@ -346,7 +250,10 @@ function buildDescription(
     if (s.sessionKind === 'lift' && detail.length > 0) text('');
     html.push(...detail);
     if (s.sessionKind === 'bike') {
-      renderRouteSection(html, '🗺️ Suggested routes from home:', routes ?? []);
+      const header = commuteLegOf(s.targetSessionType)
+        ? COMMUTE_ROUTES_HEADER
+        : HOME_ROUTES_HEADER;
+      renderRouteSection(html, header, routes ?? []);
       renderRouteSection(html, '🧭 Ad hoc routes:', adHocRoutes ?? []);
     }
   }
@@ -357,39 +264,7 @@ function buildDescription(
 }
 
 /**
- * The wall-clock slot this session's event actually occupies — the single rule
- * for "where does the sync put it?", shared by the writer (mapSessionToEvent) and
- * the reader (the calendar reconcile pass, which must know the expected time to
- * tell a real move from a no-op).
- *
- * A preferred time only MOVES the event when it is 'strong'; a mere 'suggested'
- * time is surfaced in the description instead, so the calendar is never quietly
- * rearranged over a preference.
- */
-export function effectiveStart(
-  s: PlannedSessionForEvent,
-  opts: EventMapOptions = {},
-): { hour: number; minute: number } {
-  const base = defaultStart(s, opts);
-  const preferred = parseClockTime(s.startTime);
-  const moved =
-    preferred !== null &&
-    s.startTimePriority === 'strong' &&
-    !sameClockTime(preferred, base);
-  return moved ? preferred! : base;
-}
-
-/** `effectiveStart` as "HH:MM". */
-export function effectiveStartTime(
-  s: PlannedSessionForEvent,
-  opts: EventMapOptions = {},
-): string {
-  const t = effectiveStart(s, opts);
-  return `${pad(t.hour)}:${pad(t.minute)}`;
-}
-
-/**
- * Map a planned session to a timed Calendar event. Runs start in the morning and
+ * Map a planned session to a timed Calendar event. Runs start in the evening and
  * last as long as their estimated pace × distance; lifts start in the evening for
  * a fixed hour. On a double day (run + lift on the same date) the two events sit
  * at different hours and never overlap.
@@ -403,14 +278,7 @@ export function mapSessionToEvent(
   const base = defaultStart(s, opts);
   const { hour: startHour, minute: startMinute } = effectiveStart(s, opts);
 
-  const durationMin =
-    s.sessionKind === 'run'
-      ? estimateRunMinutes(s.targetDistanceKm, s.targetSessionType)
-      : s.sessionKind === 'bike'
-        ? bikeMinutes(s.targetDistanceKm)
-        : LIFT_DURATION_MIN;
-
-  const end = addMinutes(startHour, startMinute, durationMin);
+  const end = addMinutes(startHour, startMinute, sessionDurationMin(s));
 
   // Runs, and bikes given a distance (a hand-edited "— X km", MZY-262), carry
   // it in the title — lib/calendarReconcile.ts reads it back from there.

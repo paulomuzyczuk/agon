@@ -20,7 +20,7 @@ function row(over: Partial<CalendarSyncRow> = {}): CalendarSyncRow {
     targetSessionType: 'long',
     gcalEventId: 'evt-1',
     gcalFuelingEventId: null,
-    startTime: null, // → default slot, runs at 12:00
+    startTime: null, // → default slot, runs at 19:00
     startTimePriority: null,
     startTimeReason: null,
     ...over,
@@ -86,7 +86,7 @@ describe('reconcileFromCalendar', () => {
   it('writes nothing when every event is where Agon put it', async () => {
     const { deps, calls } = makeDeps(
       [row()],
-      [{ id: 'evt-1', start: { dateTime: '2026-08-22T12:00:00+02:00' } }],
+      [{ id: 'evt-1', start: { dateTime: '2026-08-22T19:00:00+02:00' } }],
     );
     const summary = await reconcileFromCalendar(
       { fromISO: '2026-08-22' },
@@ -239,7 +239,7 @@ describe('reconcileFromCalendar', () => {
       [
         {
           id: 'evt-1',
-          start: { dateTime: '2026-08-22T12:00:00+02:00' },
+          start: { dateTime: '2026-08-22T19:00:00+02:00' },
           summary: '🏃 Long easy run — 12 km',
         },
       ],
@@ -259,7 +259,7 @@ describe('reconcileFromCalendar', () => {
       [
         {
           id: 'evt-1',
-          start: { dateTime: '2026-08-22T12:00:00+02:00' },
+          start: { dateTime: '2026-08-22T19:00:00+02:00' },
           summary: '🏃 Long easy run — 17 km',
         },
       ],
@@ -275,7 +275,7 @@ describe('reconcileFromCalendar', () => {
   it('writes nothing on a dry run but still reports what would change', async () => {
     const { deps, calls } = makeDeps(
       [row()],
-      [{ id: 'evt-1', start: { dateTime: '2026-08-25T12:00:00+02:00' } }],
+      [{ id: 'evt-1', start: { dateTime: '2026-08-25T19:00:00+02:00' } }],
     );
     const summary = await reconcileFromCalendar(
       { fromISO: '2026-08-22', dryRun: true },

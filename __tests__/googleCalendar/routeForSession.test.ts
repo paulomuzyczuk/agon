@@ -1,6 +1,7 @@
 import { ensureRoutesForSession } from '@/services/googleCalendar/routeForSession';
 import type { RouteForSessionDeps } from '@/services/googleCalendar/routeForSession';
 import type { CalendarSyncRow } from '@/services/plannedSessions';
+import type { SuggestRoutesInput } from '@/services/routing';
 
 // Reuse-else-generate-diverse orchestration with injected deps — no routing API,
 // no DB.
@@ -36,6 +37,8 @@ function deps(over: Partial<RouteForSessionDeps>): RouteForSessionDeps {
     attach: async () => {
       throw new Error('attach should not be called');
     },
+    home: () => null,
+    work: () => null,
     ...over,
   };
 }
@@ -378,5 +381,141 @@ describe('ensureRoutesForSession', () => {
       'Route 1 · 10.1 km — Tempelhof and Schöneberg',
     );
     expect(attached).toEqual(['sug-1->ps-1', 'sug-2->ps-1', 'sug-3->ps-1']);
+  });
+
+  describe('commute rides', () => {
+    const HOME = { lat: 52.44, lng: 13.2 };
+    const WORK = { lat: 52.47, lng: 13.28 };
+
+    function candidate(distanceM: number, seed: number) {
+      return {
+        seed,
+        distanceM,
+        elevationGainM: 10,
+        elevationGainPerKmM: 1,
+        distanceErrorM: 0,
+        coordinates: [[0, 0]] as [number, number][],
+        provider: 'ors',
+        direction: 'NE',
+      };
+    }
+
+    function commuteDeps(
+      calls: SuggestRoutesInput[],
+      variants: number[],
+      over: Partial<RouteForSessionDeps> = {},
+    ): RouteForSessionDeps {
+      return deps({
+        home: () => HOME,
+        work: () => WORK,
+        generate: async (input) => {
+          calls.push(input);
+          const direct = input.keep === 1;
+          return {
+            start: { ...HOME, label: 'start' },
+            targetKm: input.targetKm,
+            profile: 'cycling-regular',
+            oneWay: true,
+            candidates: direct
+              ? [candidate(8000, 0)]
+              : variants.map((m, i) => candidate(m, i + 1)),
+          };
+        },
+        save: async (result, extras) => ({
+          batchId: 'b-c',
+          suggestions: result.candidates.map((c, i) => ({
+            id: `sug-c-${i + 1}`,
+            batchId: 'b-c',
+            rank: i + 1,
+            seed: c.seed,
+            distanceM: c.distanceM,
+            elevationGainM: c.elevationGainM,
+            provider: c.provider,
+            gpx: '<gpx/>',
+            mapsUrl: `c-${i + 1}`,
+            direction: c.direction ?? null,
+            viaLabel: extras?.labels?.[i] ?? null,
+            kind: 'auto',
+            plannedSessionId: null,
+          })),
+        }),
+        attach: async () => ({
+          plannedDate: '2026-10-20',
+          sessionKind: 'bike',
+        }),
+        ...over,
+      });
+    }
+
+    const commute = (targetSessionType: string) =>
+      run({ sessionKind: 'bike', targetDistanceKm: null, targetSessionType });
+
+    it('rides home → work in the morning: direct first, then near-direct variants', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      const infos = await ensureRoutesForSession(
+        commute('commute_to_work'),
+        commuteDeps(calls, [8900, 9000]),
+      );
+      expect(calls).toHaveLength(2);
+      for (const c of calls) {
+        expect(c.start).toEqual({ coord: HOME });
+        expect(c.finishNear).toEqual({ coord: WORK });
+        expect(c.profile).toBe('cycling-regular');
+      }
+      expect(calls[1]!.targetKm).toBeCloseTo(8 * 1.12);
+      expect(infos.map((i) => i.distanceKm)).toEqual([8, 8.9, 9]);
+      expect(infos[0]!.label).toMatch(/one-way.*\(fastest\)$/);
+    });
+
+    it('rides work → home in the evening with more room to wander', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      await ensureRoutesForSession(
+        commute('commute_home'),
+        commuteDeps(calls, [12000, 12100]),
+      );
+      expect(calls[0]!.start).toEqual({ coord: WORK });
+      expect(calls[0]!.finishNear).toEqual({ coord: HOME });
+      expect(calls[1]!.targetKm).toBeCloseTo(8 * 1.5);
+    });
+
+    it('drops a variant that is just the direct route again', async () => {
+      const infos = await ensureRoutesForSession(
+        commute('commute_to_work'),
+        commuteDeps([], [8050, 9000]),
+      );
+      expect(infos.map((i) => i.distanceKm)).toEqual([8, 9]);
+    });
+
+    it('returns [] without generating when the workplace is not configured', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      const infos = await ensureRoutesForSession(
+        commute('commute_to_work'),
+        commuteDeps(calls, [9000], { work: () => null }),
+      );
+      expect(infos).toEqual([]);
+      expect(calls).toEqual([]);
+    });
+
+    it('reuses an attached set instead of regenerating', async () => {
+      const calls: SuggestRoutesInput[] = [];
+      const infos = await ensureRoutesForSession(
+        commute('commute_home'),
+        commuteDeps(calls, [9000], {
+          getAttached: async () => [
+            {
+              id: 'r1',
+              mapsUrl: 'kept-1',
+              distanceM: 8000,
+              elevationGainM: 5,
+              direction: 'NE',
+              viaLabel: 'Route 1 · 8.0 km one-way (fastest)',
+              requestedKm: 0.1,
+            } as never,
+          ],
+        }),
+      );
+      expect(calls).toEqual([]);
+      expect(infos.map((i) => i.mapsUrl)).toEqual(['kept-1']);
+    });
   });
 });
