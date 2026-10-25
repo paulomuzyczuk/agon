@@ -57,3 +57,33 @@ pnpm strava:enrich --write      # apply
 Not required — Agon works fully without Strava premium; this only improves
 data richness for runs recorded on GPS-chip-less devices (e.g. a Fitbit
 without connected-GPS).
+
+## Which source wins when two have the same run
+
+When the same run arrives from several sources, one row is kept. Priority is
+**Agon's own recorder and manual entries > Strava (while its API is enabled for
+you) or a file export > Google Health**. If a Strava run arrives for a run you
+already have from Google Health, the Google Health row is **replaced**: the
+Strava run is written, the old row's streams, gear, fueling and notes are moved
+onto it, and the old row is deleted. That is expected, not duplication. If the
+old and new start more than 5 minutes apart, neither is deleted. After a
+supersession, rerun the derived backfills (relative effort, best efforts,
+training load, race predictions) with `--write`. Details:
+`.claude/rules/run-ingestion.md`.
+
+## What it looks like without a subscription
+
+The Strava API now needs an active paid Strava subscription on the developer
+account. Without it the sync stops with an error of the form
+`strava: GET /… failed (<HTTP status> …)`; a `429` is Strava's rate limit
+(wait and rerun, the backfill resumes), not the paywall. Agon works fully
+without Strava; use [`google-health.md`](google-health.md) for the live path.
+
+## Runs and rides are separate commands
+
+- `pnpm strava:sync` pulls new **runs** since the newest Strava run in the
+  database (deprecated as a live source, kept for anyone with API access).
+- `pnpm strava:sync-rides` does the same for **rides**
+  (`--no-streams`, `--no-gear` to go lighter). Needs `pnpm strava:auth` first.
+
+Neither command touches the other's activities, so run both if you want both.

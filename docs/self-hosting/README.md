@@ -28,10 +28,17 @@ runbook, not a from-scratch guide.
 
 - [Docker](https://docs.docker.com/get-docker/) + Docker Compose (bundled
   with Docker Desktop, or the `docker-compose-plugin` package on Linux).
-- [Node.js 22](https://nodejs.org/) + [pnpm](https://pnpm.io/) (`corepack
-  enable` gets you the pinned pnpm version from this repo's `package.json`)
-  — needed to run `pnpm bootstrap` and any one-off admin script from your
-  own machine; the app itself runs entirely inside Docker.
+- [Node.js 22 or newer](https://nodejs.org/), plus [pnpm](https://pnpm.io/)
+  through **`corepack enable`**. Run that once before anything else: it makes
+  `pnpm` the exact version pinned in this repo's `package.json`, and without it
+  `pnpm install` fails or uses the wrong version. Node and pnpm are needed to
+  run `pnpm bootstrap` and any one-off admin script from your own machine; the
+  app itself runs entirely inside Docker.
+- *Optional, Linux with an NVIDIA GPU, for the `local-ai` profile:* the
+  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
+  Without it the GPU is not used and the models silently fall back to the CPU
+  (much slower). To run CPU-only on purpose, remove the `deploy:` GPU block of
+  the `ollama` service in `docker-compose.yml`.
 - A Telegram account (for the bot) and, optionally, Strava/Google accounts
   for the integrations you want.
 
@@ -77,10 +84,14 @@ profile list (`local-ai`, `analytics`) and one-off admin script usage
 
 The `app` service also bind-mounts `./data` read-write — `lib/auth/`
 persists your migrated login-secret hash there on first login (see
-[`network-exposure.md`](network-exposure.md)). Docker creates that host
-directory for you, but on Linux make sure it's writable by uid 1000 (the
-image's non-root user) if you see permission errors in `docker compose logs
-app`: `mkdir -p data && sudo chown 1000:1000 data`.
+[`network-exposure.md`](network-exposure.md)). **On Linux, create it before the
+first start** and give it to uid 1000 (the image's non-root user); otherwise
+Docker creates it as root and the app cannot write to it (permission errors in
+`docker compose logs app`):
+
+```sh
+mkdir -p data && sudo chown 1000:1000 data
+```
 
 Check it's up:
 
@@ -187,18 +198,58 @@ placeholders.
   see [telegram.md](telegram.md); routing (a self-hosted OpenRouteService) is the
   `local-routing` profile (`up -d ors-app`).
 
+## Your personal state, and where it lives
+
+Not everything you have set up is in Postgres, so `pnpm db:backup` does not
+cover it. These are all gitignored or outside the repo; copy them yourself when
+you move machines, and note that a new machine silently runs on the **template
+values** until you do:
+
+| What | Where |
+|---|---|
+| Secrets and settings | `.env.local` |
+| Your profile and nutrition targets | `config/athlete-profile.local.json`, `config/nutrition-goals.local.json` |
+| Your program | `docs/training-program.local.md`, and your edits to `lib/training/trainingProgram.ts` (tracked code, so they conflict on `git pull` if the upstream file changed) |
+| Login-secret hash | `data/` |
+| Database backups | `AGON_BACKUP_DIR` (default `./backups`) |
+| Knowledge vault | wherever `AGON_VAULT_PATH` points |
+| Local models | the `ollama-models` Docker volume (or your host Ollama's own directory) |
+| Tower-only files | edited systemd units, local Compose changes |
+
+OAuth tokens (Strava, Google) live **in Postgres**, so a restore brings them
+back.
+
 ## Updating
 
-```sh
-git pull
-docker compose --env-file .env.local build app bot
-docker compose --env-file .env.local up -d app bot
-docker compose --env-file .env.local run --rm app tsx scripts/migrate.ts
-```
+1. **Back up first**, and check it: `pnpm db:backup` (see [`backups.md`](backups.md)).
+2. **Get the new code.** `git pull`. If you have local edits (your
+   `lib/training/trainingProgram.ts`, changes to `docker-compose.yml`), commit
+   or stash them first and resolve any conflict by hand; your `*.local.*`
+   files and `.env.local` are ignored by git and not touched. See what changed
+   with `git log --oneline ORIG_HEAD..HEAD`, and check `.env.example` for new
+   settings (`git diff ORIG_HEAD..HEAD -- .env.example`).
+3. **Rebuild, migrate, then serve.** Migrate **before** the new code starts, so
+   it never runs against the old schema:
 
-See the `agon` project in Linear for what changed between
-versions, and CLAUDE.md's migration discipline (EXPAND-only, forward-only —
-`migrate.ts` is always safe to re-run).
+   ```sh
+   docker compose --env-file .env.local build app bot
+   docker compose --env-file .env.local up -d db
+   docker compose --env-file .env.local run --rm app tsx scripts/migrate.ts
+   docker compose --env-file .env.local up -d app bot
+   ```
+
+   `migrate.ts` is forward-only and safe to re-run (CLAUDE.md's migration
+   discipline: EXPAND-only).
+4. **Overlay files and profiles.** If you started with an overlay (for example
+   `-f docker-compose.yml -f docker-compose.voice.yml`) or a profile
+   (`--profile local-ai`), pass the same ones in every command above, or Compose
+   quietly rebuilds the plain services instead.
+
+## Uninstalling
+
+[`uninstall.md`](uninstall.md): containers and volumes, schedulers, local files,
+and the accounts to clean up at Telegram, Strava and Google (with a warning not
+to delete a shared Ollama).
 
 ## Troubleshooting
 

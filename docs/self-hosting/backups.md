@@ -90,6 +90,12 @@ docker compose -p agon --env-file .env.local start app bot
 pnpm migrate
 ```
 
+**Restore with `pg_restore` of a `pg_dump -Fc` file only** (what `pnpm db:backup`
+writes). Do not also load a `pg_dumpall --roles-only` file onto an install that
+`pnpm bootstrap` already set up: it overwrites the `agon` role's password and
+the app can no longer connect. (That file belongs to the new-hardware runbook,
+[`deploy/SETUP.md`](../../deploy/SETUP.md), where the target has no roles yet.)
+
 If the whole volume is gone (the 2026-09-08 case), run `pnpm db:up` first to
 get an empty cluster with the `agon` role, then do step 3 with
 `-d agon` directly. The warehouse roles (`mcp_reader`, the dbt writer) are
