@@ -25,16 +25,43 @@ export function dbTarget(): DbTarget {
   };
 }
 
+// The Docker CLI picks its engine from the current context. After installing
+// Docker Desktop a scheduler's clean environment resolves to `desktop-linux`,
+// an engine without the agon container, and `docker exec` fails with "no such
+// container" (MZY-401). AGON_DOCKER_HOST names the engine explicitly; it is
+// separate from DOCKER_HOST so a value in .env.local cannot also redirect
+// `docker compose` runs from the same shell.
+const DOCKER_HOST_FORM = /^(unix|tcp|ssh):\/\/\S+$/;
+
+type Env = Record<string, string | undefined>;
+
+export function dockerArgs(args: string[], env: Env = process.env): string[] {
+  const host = env.AGON_DOCKER_HOST;
+  if (!host) return args;
+  if (!DOCKER_HOST_FORM.test(host))
+    throw new Error(
+      `AGON_DOCKER_HOST must look like unix:///var/run/docker.sock, tcp://host:2375 or ssh://user@host; got "${host}"`,
+    );
+  return ['--host', host, ...args];
+}
+
 // Run a command; resolve with stdout, reject with stderr on non-zero exit.
+interface RunOpts {
+  stdoutFile?: string;
+  stdinFile?: string;
+  env?: Env;
+}
+
 export function run(
   cmd: string,
   args: string[],
-  opts: { stdoutFile?: string; stdinFile?: string } = {},
+  opts: RunOpts = {},
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const stdinFd = opts.stdinFile ? openSync(opts.stdinFile, 'r') : null;
     const child = spawn(cmd, args, {
       stdio: [stdinFd ?? 'ignore', 'pipe', 'pipe'],
+      env: opts.env as NodeJS.ProcessEnv | undefined,
     });
     const { stdout, stderr } = child as unknown as {
       stdout: NodeJS.ReadableStream;
@@ -68,12 +95,19 @@ export function run(
   });
 }
 
+export async function docker(
+  args: string[],
+  opts: RunOpts = {},
+): Promise<string> {
+  return run('docker', dockerArgs(args, opts.env ?? process.env), opts);
+}
+
 export function psql(
   t: DbTarget,
   database: string,
   sql: string,
 ): Promise<string> {
-  return run('docker', [
+  return docker([
     'exec',
     t.container,
     'psql',
@@ -133,18 +167,13 @@ export async function takeVerifiedDump(
   file: string,
 ): Promise<number> {
   const partial = `${file}.partial`;
-  await run(
-    'docker',
+  await docker(
     ['exec', t.container, 'pg_dump', '-U', t.user, '-d', t.database, '-Fc'],
     { stdoutFile: partial },
   );
-  const toc = await run(
-    'docker',
-    ['exec', '-i', t.container, 'pg_restore', '-l'],
-    {
-      stdinFile: partial,
-    },
-  );
+  const toc = await docker(['exec', '-i', t.container, 'pg_restore', '-l'], {
+    stdinFile: partial,
+  });
   const tableData = toc
     .split('\n')
     .filter((l) => l.includes(' TABLE DATA ')).length;

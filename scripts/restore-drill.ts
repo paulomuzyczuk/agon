@@ -4,9 +4,9 @@ import { join } from 'path';
 import { loadEnv } from './loadEnv';
 import {
   dbTarget,
+  docker,
   exactRowCounts,
   psql,
-  run,
   takeVerifiedDump,
 } from './backupShared';
 import { dumpFileName } from '../lib/backupRotation';
@@ -48,8 +48,7 @@ async function main(): Promise<void> {
     await psql(t, 'postgres', `CREATE DATABASE ${SCRATCH_DB}`);
     // --exit-on-error: any restore error fails the drill instead of being
     // skipped past with a warning.
-    await run(
-      'docker',
+    await docker(
       [
         'exec',
         '-i',
