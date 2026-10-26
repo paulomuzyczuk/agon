@@ -20,6 +20,9 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/_next/')) return true;
   if (pathname === '/manifest.webmanifest' || pathname === '/favicon.ico')
     return true;
+  // The PWA icons named in the manifest: the browser fetches them without our
+  // session cookie, and Chrome withholds "Install app" if they redirect to /login.
+  if (pathname.startsWith('/icons/')) return true;
   // The service worker script (MZY-207): it holds no data, and it must stay
   // fetchable after a session expires so the offline shell keeps updating.
   if (pathname === '/sw.js') return true;

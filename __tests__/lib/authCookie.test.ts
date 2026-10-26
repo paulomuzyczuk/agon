@@ -6,4 +6,11 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/nutrition')).toBe(false);
     expect(isPublicPath('/api/sync/pull')).toBe(false);
   });
+
+  it('serves the PWA manifest icons without a session, so Chrome offers "Install app"', () => {
+    expect(isPublicPath('/icons/icon-192.png')).toBe(true);
+    expect(isPublicPath('/icons/icon-maskable-512.png')).toBe(true);
+    expect(isPublicPath('/icons')).toBe(false);
+    expect(isPublicPath('/iconsx/secret')).toBe(false);
+  });
 });
