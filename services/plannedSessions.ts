@@ -77,6 +77,7 @@ function toCalendarSyncRow(r: SessionRow): CalendarSyncRow {
     gcalEventId: r.gcal_event_id,
     gcalFuelingEventId: r.gcal_fueling_event_id,
     gcalPushed: r.gcal_pushed,
+    outcome: r.outcome,
     startTime: r.start_time,
     startTimePriority: r.start_time_priority,
     startTimeReason: r.start_time_reason,

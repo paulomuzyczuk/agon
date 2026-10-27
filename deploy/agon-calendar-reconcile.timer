@@ -1,0 +1,18 @@
+# Monday schedule for the weekly calendar reconciliation (agon-calendar-reconcile.service).
+#
+# See that unit for what it does and how to install both files.
+
+[Unit]
+Description=Reconcile the Agon calendar with recorded data every Monday
+Requires=agon-calendar-reconcile.service
+
+[Timer]
+# Monday 06:00 local: last week is complete (Sunday's run has synced from Strava
+# / Google Health by morning) and the calendar is right before the week starts.
+OnCalendar=Mon *-*-* 06:00:00
+RandomizedDelaySec=300
+# A tower that was off at 06:00 reconciles as soon as it is back.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

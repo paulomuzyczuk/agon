@@ -14,6 +14,11 @@ import {
 import { getAthleteProfile } from '../../lib/athleteProfile';
 import { commuteLegOf } from '../../lib/training/commutes';
 import {
+  outcomeNote,
+  outcomeTitlePrefix,
+  type SessionOutcome,
+} from '../../lib/sessionOutcome';
+import {
   defaultStart,
   effectiveStart,
   pad,
@@ -71,6 +76,8 @@ export interface PlannedSessionForEvent {
    * HTML, rendered in place of the program's detail. Null/absent → program's.
    */
   detail?: string | null;
+  /** What recorded data says happened (MZY-417): marks the title, adds a note, sets the length. */
+  outcome?: SessionOutcome | null;
 }
 
 /** A suggested route to surface in a run event's description (route builder). */
@@ -199,6 +206,8 @@ function buildDescription(
   // when they open it.
   if (s.adjustmentNote) text(s.adjustmentNote);
   if (timingNote) text(timingNote);
+  const outcomeLine = outcomeNote(s.outcome);
+  if (outcomeLine) text(outcomeLine);
 
   if (s.sessionKind === 'run') {
     if (s.targetDistanceKm !== null) text(`Target: ${s.targetDistanceKm} km`);
@@ -282,10 +291,11 @@ export function mapSessionToEvent(
 
   // Runs, and bikes given a distance (a hand-edited "— X km", MZY-262), carry
   // it in the title — lib/calendarReconcile.ts reads it back from there.
+  const prefix = outcomeTitlePrefix(s.outcome);
   const summary =
     s.sessionKind !== 'lift' && s.targetDistanceKm !== null
-      ? `${emojiFor(s.sessionKind)} ${s.description} — ${s.targetDistanceKm} km`
-      : `${emojiFor(s.sessionKind)} ${s.description}`;
+      ? `${prefix}${emojiFor(s.sessionKind)} ${s.description} — ${s.targetDistanceKm} km`
+      : `${prefix}${emojiFor(s.sessionKind)} ${s.description}`;
 
   const routeEligible = s.sessionKind === 'run' || s.sessionKind === 'bike';
   return {

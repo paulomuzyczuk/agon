@@ -8,7 +8,7 @@ import type { AdjustmentFields } from '../lib/training/sessionOverlay';
 // planned_sessions, which is the whole point: `pnpm seed:planned` can re-run at
 // any time without losing a single deviation.
 
-export type AdjustmentSource = 'manual' | 'calendar';
+export type AdjustmentSource = 'manual' | 'calendar' | 'realized';
 
 export interface SessionAdjustment extends AdjustmentFields {
   plannedSessionId: string;

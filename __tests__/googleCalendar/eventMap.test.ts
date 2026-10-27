@@ -584,7 +584,11 @@ describe('mapSessionToEvent — commute rides', () => {
   it('lists routes under a commute header, not "from home"', () => {
     const e = mapSessionToEvent(commute('commute_home'), {
       routes: [
-        { mapsUrl: 'https://maps.example/c1', distanceKm: 8.4, elevationGainM: null },
+        {
+          mapsUrl: 'https://maps.example/c1',
+          distanceKm: 8.4,
+          elevationGainM: null,
+        },
       ],
     });
     expect(e.description).toContain('🗺️ Commute routes:');
@@ -600,6 +604,57 @@ describe('mapSessionToEvent — commute rides', () => {
       startTimeReason: 'early meeting',
     });
     expect(e.start.dateTime).toBe('2026-10-20T07:45:00');
-    expect(e.description).toContain('⏰ Moved to 07:45 (normally 08:30) — early meeting');
+    expect(e.description).toContain(
+      '⏰ Moved to 07:45 (normally 08:30) — early meeting',
+    );
+  });
+});
+
+// MZY-417: a session the recorded data speaks for shows it in the calendar.
+describe('mapSessionToEvent — realized outcome', () => {
+  const planned = {
+    date: '2026-10-25',
+    block: 3,
+    week: 31,
+    sessionKind: 'run' as const,
+    description: 'Back-to-back day 1 — long',
+    targetDistanceKm: 19.4,
+    targetHrCap: 154,
+    targetSessionType: 'long',
+  };
+
+  it('marks a done session, notes the plan, and lasts as long as the activity', () => {
+    const ev = mapSessionToEvent({
+      ...planned,
+      startTime: '22:32',
+      startTimePriority: 'strong',
+      outcome: {
+        status: 'done',
+        plannedKm: 21,
+        actualKm: 19.4,
+        actualDurationMin: 123,
+        source: 'strava',
+      },
+    });
+    expect(ev.summary).toBe('✅ 🏃 Back-to-back day 1 — long — 19.4 km');
+    expect(ev.description).toContain(
+      '✅ Done — 19.4 km (planned 21 km) · strava',
+    );
+    expect(ev.start.dateTime).toBe('2026-10-25T22:32:00');
+    expect(ev.end.dateTime).toBe('2026-10-26T00:35:00');
+  });
+
+  it('tags a session that did not happen and keeps its event', () => {
+    const ev = mapSessionToEvent({
+      ...planned,
+      outcome: { status: 'not_done', plannedKm: 19.4 },
+    });
+    expect(ev.summary).toBe('❌ 🏃 Back-to-back day 1 — long — 19.4 km');
+    expect(ev.description).toContain('❌ Not done — nothing recorded that day');
+  });
+
+  it('leaves an unknown outcome exactly as before', () => {
+    const ev = mapSessionToEvent({ ...planned, outcome: null });
+    expect(ev.summary).toBe('🏃 Back-to-back day 1 — long — 19.4 km');
   });
 });

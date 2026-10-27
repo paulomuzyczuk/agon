@@ -20,8 +20,13 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   sudo (`deploy/user/agon-backup.*`, for a clone in a home directory) or as the
   system-wide pair (`deploy/agon-backup.*`, `User=agon`, `/opt/agon`). Details and
   the restore drill: `docs/self-hosting/backups.md`.
+- **Weekly calendar reconciliation** — `pnpm gcal:weekly-reconcile --write` on
+  Mondays 06:00 under a `systemd` timer (`agon-calendar-reconcile.*`, or the
+  user-level pair in `deploy/user/`). Marks last fortnight's sessions done /
+  not done from the recorded data and pushes that to Google Calendar. See
+  `docs/self-hosting/google-calendar.md`.
 - **n8n** — self-hosted automation (later).
-- Other scheduled jobs (`pnpm gcal:sync`, `pnpm gh:sync`, weather enrichment) via
+- Other scheduled jobs (`pnpm gcal:sync` for the future calendar, `pnpm gh:sync`, weather enrichment) via
   `cron` or `systemd` timers (later).
 
 ## Why long-poll, not webhook

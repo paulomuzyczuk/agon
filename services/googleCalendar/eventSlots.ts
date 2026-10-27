@@ -101,6 +101,10 @@ function bikeMinutes(distanceKm: number | null): number {
 
 /** How long the session's event lasts, in minutes. */
 export function sessionDurationMin(s: PlannedSessionForEvent): number {
+  // A session that happened lasts as long as the recorded activity did.
+  if (s.outcome?.status === 'done' && s.outcome.actualDurationMin) {
+    return s.outcome.actualDurationMin;
+  }
   if (s.sessionKind === 'run') {
     return estimateRunMinutes(s.targetDistanceKm, s.targetSessionType);
   }

@@ -20,6 +20,7 @@ function runSession(over: Partial<CalendarSyncRow> = {}): CalendarSyncRow {
     gcalEventId: 'evt-1',
     gcalFuelingEventId: null,
     gcalPushed: null,
+    outcome: null,
     ...over,
   };
 }

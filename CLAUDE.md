@@ -176,8 +176,16 @@ Ad-hoc personal errands (e.g. a shopping trip) stay on the primary
 calendar and are never conflated with a training session, even if they
 share a location with a planned run.
 
-**Hand edits win.** The athlete edits synced events directly in Google
-Calendar (changing a run's distance, deleting a lifting session, moving
+**Hand edits win — for sessions still to come.** For a session that has
+already happened, **recorded data wins** (MZY-417): every Monday
+`pnpm gcal:weekly-reconcile` marks the last 14 days' events done (`✅`, actual
+distance/start/duration) or not done (`❌`, event kept) from the runs and rides
+data, attributing activity to the session by its calendar date — a move the
+athlete made in Calendar sets that date, so those edits still count. Reconcile
+calls something a hand edit only when the event differs from what Agon last
+pushed (`planned_sessions.gcal_pushed`), never from today's default slot. The
+rest of this paragraph is the rule for future sessions: the athlete edits
+synced events directly in Google Calendar (changing a run's distance, deleting a lifting session, moving
 a time) — these edits are authoritative and must survive: never silently
 overwrite an event back to the program's original value, and never treat
 a hand-edited event as "wrong" without asking first. Mechanically (since

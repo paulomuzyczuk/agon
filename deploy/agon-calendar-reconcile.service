@@ -1,0 +1,38 @@
+# Weekly calendar reconciliation (MZY-417): the "Agon Training" calendar follows
+# the recorded runs and rides, not the plan. Run by agon-calendar-reconcile.timer
+# on Mondays.
+#
+# Runs `pnpm gcal:weekly-reconcile --write`: reads the athlete's own calendar
+# edits back, marks every session of the last 14 days done / not done from the
+# recorded data, pushes the result to Google Calendar and sends a one-line
+# summary to Telegram. See docs/self-hosting/google-calendar.md.
+#
+# Install alongside the timer (both files):
+#   sudo cp deploy/agon-calendar-reconcile.service deploy/agon-calendar-reconcile.timer /etc/systemd/system/
+#   sudoedit /etc/systemd/system/agon-calendar-reconcile.service   # set the real paths
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now agon-calendar-reconcile.timer
+#   systemctl list-timers agon-calendar-reconcile                  # confirm next run
+#   sudo systemctl start agon-calendar-reconcile.service           # run once, now
+#   journalctl -u agon-calendar-reconcile -n 50
+#
+# Requires: Node + pnpm for the service User, .env.local with DATABASE_URL and the
+# Google Calendar OAuth tokens (`pnpm gcal:auth` once); TELEGRAM_OWNER_CHAT_ID for
+# the summary to be delivered rather than only logged. Run `pnpm gcal:sync` once
+# after upgrading to MZY-417 so every event has a snapshot to compare against.
+
+[Unit]
+Description=Agon weekly calendar reconciliation (calendar follows recorded data)
+After=network-online.target docker.service postgresql.service
+Wants=network-online.target
+
+[Service]
+# oneshot: it reconciles, reports and exits.
+Type=oneshot
+User=agon
+WorkingDirectory=/opt/agon
+EnvironmentFile=-/opt/agon/.env.local
+ExecStart=/usr/bin/env pnpm gcal:weekly-reconcile --write
+# No Restart=: a failure is a REPORT. The timer brings it back next Monday and the
+# job is idempotent, so a later manual run loses nothing.
+TimeoutStartSec=1800
