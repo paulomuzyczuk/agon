@@ -30,6 +30,8 @@ function row(over: Partial<SessionRow> = {}): SessionRow {
     target_session_type: 'long',
     gcal_event_id: null,
     gcal_fueling_event_id: null,
+    gcal_pushed: null,
+    outcome: null,
     start_time: '14:00',
     start_time_priority: null,
     start_time_reason: null,

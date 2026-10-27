@@ -20,6 +20,8 @@ function row(over: Partial<CalendarSyncRow> = {}): CalendarSyncRow {
     targetSessionType: 'long',
     gcalEventId: 'evt-1',
     gcalFuelingEventId: null,
+    gcalPushed: null,
+    outcome: null,
     startTime: null, // → default slot, runs at 19:00
     startTimePriority: null,
     startTimeReason: null,

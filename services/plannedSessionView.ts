@@ -1,3 +1,5 @@
+import type { PushedEvent } from '../lib/calendarReconcile';
+import type { SessionOutcome } from '../lib/sessionOutcome';
 import {
   resolveSession,
   adjustmentNote,
@@ -27,6 +29,10 @@ export interface SessionRow {
   target_session_type: string | null;
   gcal_event_id: string | null;
   gcal_fueling_event_id: string | null;
+  /** What Agon last pushed to the event (MZY-417), or null before the first snapshot. */
+  gcal_pushed: PushedEvent | null;
+  /** What recorded data says happened (MZY-417), or null when unknown. */
+  outcome: SessionOutcome | null;
   start_time: string | null;
   start_time_priority: 'strong' | 'suggested' | null;
   start_time_reason: string | null;
@@ -49,7 +55,7 @@ export interface SessionRow {
 export const SESSION_SELECT = `
   p.id, to_char(p.date, 'YYYY-MM-DD') AS date, p.block, p.week,
   p.session_kind, p.status, p.description, p.target_distance_km, p.target_hr_cap,
-  p.target_session_type, p.gcal_event_id, p.gcal_fueling_event_id,
+  p.target_session_type, p.gcal_event_id, p.gcal_fueling_event_id, p.gcal_pushed, p.outcome,
   to_char(p.start_time, 'HH24:MI') AS start_time,
   p.start_time_priority, p.start_time_reason,
   to_char(a.date, 'YYYY-MM-DD') AS adj_date,

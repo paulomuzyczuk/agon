@@ -19,6 +19,8 @@ function run(over: Partial<CalendarSyncRow> = {}): CalendarSyncRow {
     targetSessionType: 'easy',
     gcalEventId: null,
     gcalFuelingEventId: null,
+    gcalPushed: null,
+    outcome: null,
     ...over,
   };
 }
@@ -685,9 +687,7 @@ describe('ensureRoutesForSession', () => {
         });
         const infos = await ensureRoutesForSession(tt(), d);
         expect(calls).toHaveLength(1);
-        expect(calls[0]!.through).toEqual([
-          { place: 'Müllerstraße, Wedding' },
-        ]);
+        expect(calls[0]!.through).toEqual([{ place: 'Müllerstraße, Wedding' }]);
         expect(calls[0]!.finishNear).toEqual({
           place: 'Müllerstraße, Wedding',
         });

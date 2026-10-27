@@ -38,8 +38,8 @@ Optionally remove the images: `docker image ls | grep agon`, then `docker image 
 Whichever you installed:
 
 ```sh
-systemctl --user disable --now agon-backup.timer       # user units (deploy/user/)
-sudo systemctl disable --now agon-backup.timer agon-bot agon-freshness.timer agon-gear-maintenance.timer
+systemctl --user disable --now agon-backup.timer agon-calendar-reconcile.timer   # user units (deploy/user/)
+sudo systemctl disable --now agon-backup.timer agon-bot agon-freshness.timer agon-gear-maintenance.timer agon-calendar-reconcile.timer
 launchctl bootout gui/$(id -u)/com.agon.backup                    # macOS
 ```
 

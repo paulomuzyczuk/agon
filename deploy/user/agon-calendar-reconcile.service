@@ -1,0 +1,33 @@
+# Weekly calendar reconciliation as a USER unit (MZY-417): no sudo, no dedicated
+# `agon` user. The system-wide variant (deploy/agon-calendar-reconcile.service)
+# assumes User=agon and /opt/agon.
+#
+# Runs `pnpm gcal:weekly-reconcile --write` (see docs/self-hosting/google-calendar.md).
+# The script loads .env.local itself, so there is no EnvironmentFile.
+#
+# Install (as your normal user):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/user/agon-calendar-reconcile.service deploy/user/agon-calendar-reconcile.timer ~/.config/systemd/user/
+#   # Edit in the copied service file if they differ on your machine:
+#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
+#   #   PATH              must contain the directory of `pnpm` and `node`
+#   systemd-analyze --user verify ~/.config/systemd/user/agon-calendar-reconcile.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now agon-calendar-reconcile.timer
+#   systemctl --user start agon-calendar-reconcile.service   # run once, now
+#   journalctl --user -u agon-calendar-reconcile -n 20
+#   loginctl enable-linger "$USER"                           # keep user timers running while logged out
+#
+# Run `pnpm gcal:sync` once after upgrading to MZY-417 so every event has a
+# snapshot to compare against.
+
+[Unit]
+Description=Agon weekly calendar reconciliation (calendar follows recorded data)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/agon
+# systemd does not use your login shell's PATH.
+Environment=PATH=%h/.local/share/pnpm:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env pnpm gcal:weekly-reconcile --write
+TimeoutStartSec=1800

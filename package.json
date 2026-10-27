@@ -40,6 +40,7 @@
     "session:adjust": "tsx scripts/adjust-session.ts",
     "plan:repair-drift": "tsx scripts/migrate-plan-drift.ts",
     "gcal:reconcile": "tsx scripts/reconcile-google-calendar.ts",
+    "gcal:weekly-reconcile": "tsx scripts/weekly-calendar-reconcile.ts",
     "gcal:auth": "tsx scripts/google-calendar-auth.ts",
     "gcal:sync": "tsx scripts/sync-google-calendar.ts",
     "sync:meal-calendar": "tsx scripts/sync-meal-calendar.ts",

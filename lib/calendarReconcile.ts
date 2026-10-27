@@ -43,6 +43,23 @@ export interface SessionState {
   targetSessionType?: string | null;
   /** The detail override already stored for this session, if any. */
   detail?: string | null;
+  /**
+   * What Agon last pushed for this event, or null/absent when unknown (never
+   * synced since the snapshot existed). Known → an unchanged event is never an
+   * edit; unknown → fall back to comparing with the session's current values.
+   */
+  pushed?: PushedEvent | null;
+}
+
+/**
+ * The event as Google held it right after Agon's last push (MZY-417). An event
+ * that still equals this has not been touched by the athlete, whatever the
+ * session's defaults say today.
+ */
+export interface PushedEvent {
+  dateTime?: string;
+  summary?: string;
+  description?: string;
 }
 
 /** What the calendar says. `null` event means it is gone. */
@@ -189,10 +206,38 @@ interface ContentEdit {
   fragments: string[];
 }
 
+/** True when the event's title and description are exactly what Agon pushed. */
+function contentUntouched(session: SessionState, event: EventState): boolean {
+  const p = session.pushed;
+  return (
+    !!p &&
+    p.summary !== undefined &&
+    p.summary === event.summary &&
+    p.description === event.description
+  );
+}
+
+/** True when the event still sits where Agon put it. */
+function timeUntouched(session: SessionState, event: EventState): boolean {
+  const pushed = session.pushed?.dateTime;
+  if (!pushed || !event.dateTime) return false;
+  const a = splitLocalDateTime(pushed);
+  const b = splitLocalDateTime(event.dateTime);
+  return !!a && !!b && a.date === b.date && a.time === b.time;
+}
+
 function detectContentEdits(
   session: SessionState,
   event: EventState,
 ): ContentEdit {
+  if (contentUntouched(session, event)) {
+    return {
+      targetDistanceKm: null,
+      description: null,
+      detail: null,
+      fragments: [],
+    };
+  }
   const targetDistanceKm = detectDistanceEdit(session, event);
   const description = detectTitleEdit(session, event);
   const detail = detectDetailEdit(session, event);
@@ -266,6 +311,10 @@ export function reconcileSession(
   // athlete's calendar there; content edits are independent and still stand.
   const split = event.dateTime ? splitLocalDateTime(event.dateTime) : null;
   if (!split) return withContent(null, null, []);
+
+  // Where Agon left it is not a move, even if today's default slot differs
+  // (MZY-417: a changed default must never read as a hand edit).
+  if (timeUntouched(session, event)) return withContent(null, null, []);
 
   const dateMoved = split.date !== session.date;
   // A session with no explicit start time sits in the sync's default slot; the

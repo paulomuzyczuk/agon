@@ -35,9 +35,41 @@ pnpm gcal:auth      # one-time CLI OAuth flow, same "copy the code from the URL"
 pnpm gcal:sync       # idempotent — inserts/patches events on gcal_event_id, never duplicates
 ```
 
-`gcal:sync` is CLI-only for now (not wired to a scheduled job or the
-Telegram bot) — re-run it after `pnpm seed:planned` or any program change to
-push the delta.
+`gcal:sync` is run by hand — re-run it after `pnpm seed:planned` or any
+program change to push the delta. The weekly job below keeps the *past* in
+line with what you actually did.
+
+## Weekly reconciliation with recorded data (MZY-417)
+
+Recorded data is the source of truth for sessions that have already happened;
+the calendar follows it. Every Monday 06:00 a timer runs
+`pnpm gcal:weekly-reconcile --write`, which looks back 14 days:
+
+1. **Reads your calendar edits back** (a moved or retitled event). Moving an
+   event is how you say which day a session happened, so that date is what the
+   data is attributed to.
+2. **Attributes each run/ride to the session on that calendar date** — never by
+   comparing clock times. Two activities on one day go to the sessions by closest
+   distance; a commute's two legs by morning / afternoon.
+3. **Marks the event.** Done: `✅` in the title, the actual distance, the actual
+   start time and duration, and a note with the planned distance and the source.
+   Nothing recorded on its day: `❌ Not done` — the event stays, history is not
+   deleted. Lifts and sessions from today on are left alone (no lift data yet;
+   a session still to do is not a missed one).
+4. **Pushes the result** to Google Calendar and sends a one-line summary to
+   Telegram.
+
+```sh
+pnpm gcal:weekly-reconcile                 # dry run: prints what would change
+pnpm gcal:weekly-reconcile --write         # apply, sync, notify
+pnpm gcal:weekly-reconcile --days=28       # look back further
+```
+
+It is idempotent. Install the timer from `deploy/agon-calendar-reconcile.*`
+(system-wide) or `deploy/user/agon-calendar-reconcile.*` (no sudo). After
+upgrading to this version run `pnpm migrate`, then `pnpm gcal:sync` once so every
+event has a snapshot of what Agon pushed — reconcile only treats a difference
+from that snapshot as your edit, so a changed default slot never looks like one.
 
 ## Route suggestions (optional)
 
