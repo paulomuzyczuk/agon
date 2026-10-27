@@ -3,6 +3,7 @@ import {
   getSessionsToSync,
   getSkippedSessionsWithEvents,
   markSessionSynced,
+  recordPushedEvent,
   clearSessionEventLink,
   markFuelingEventSynced,
   clearFuelingEventLink,
@@ -81,6 +82,8 @@ export interface CalendarSyncDeps {
     event: CalendarEventInput,
   ) => Promise<EventResource>;
   markSynced: (id: string, eventId: string) => Promise<void>;
+  /** Snapshot the event as Google returned it, so reconcile can spot hand edits (MZY-417). */
+  recordPushed: (id: string, event: EventResource) => Promise<void>;
   /** Record a session's linked companion fueling event id. */
   markFuelingSynced: (id: string, eventId: string) => Promise<void>;
   /** Forget a session's fueling-event link (event deleted or no longer qualifies). */
@@ -117,6 +120,7 @@ const defaultDeps: CalendarSyncDeps = {
   patch: (token, calendarId, eventId, event) =>
     patchEvent(token, calendarId, eventId, event),
   markSynced: (id, eventId) => markSessionSynced(id, eventId),
+  recordPushed: (id, event) => recordPushedEvent(id, event),
   markFuelingSynced: (id, eventId) => markFuelingEventSynced(id, eventId),
   unlinkFueling: (id) => clearFuelingEventLink(id),
   // A routing failure (no ORS key, geocode miss) must NOT fail the calendar sync —
@@ -258,7 +262,13 @@ export async function syncTrainingCalendar(
     let mainEventSynced = false;
     if (s.gcalEventId) {
       try {
-        await deps.patch(token, calendarId, s.gcalEventId, event);
+        const pushed = await deps.patch(
+          token,
+          calendarId,
+          s.gcalEventId,
+          event,
+        );
+        await deps.recordPushed(s.id, pushed);
         updated++;
         mainEventSynced = true;
       } catch (err) {
@@ -269,6 +279,7 @@ export async function syncTrainingCalendar(
     if (!mainEventSynced) {
       const res = await deps.insert(token, calendarId, event);
       await deps.markSynced(s.id, res.id);
+      await deps.recordPushed(s.id, res);
       created++;
     }
 

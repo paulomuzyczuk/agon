@@ -25,6 +25,8 @@ function row(over: Partial<CalendarSyncRow>): CalendarSyncRow {
     targetSessionType: 'easy',
     gcalEventId: null,
     gcalFuelingEventId: null,
+    gcalPushed: null,
+    outcome: null,
     ...over,
   };
 }
@@ -35,6 +37,7 @@ interface Calls {
   patch: unknown[];
   patchCalendarIds: string[];
   markSynced: { id: string; eventId: string }[];
+  recordPushed: { id: string; eventId: string }[];
   markFuelingSynced: { id: string; eventId: string }[];
   ensured: string[];
   removed: string[];
@@ -63,6 +66,7 @@ function makeDeps(
     unlinked: [],
     unlinkedFueling: [],
     reconciled: [],
+    recordPushed: [],
     order: [],
   };
   let seq = 0;
@@ -92,6 +96,9 @@ function makeDeps(
     },
     markSynced: async (id, eventId) => {
       calls.markSynced.push({ id, eventId });
+    },
+    recordPushed: async (id, event) => {
+      calls.recordPushed.push({ id, eventId: event.id });
     },
     markFuelingSynced: async (id, eventId) => {
       calls.markFuelingSynced.push({ id, eventId });
@@ -153,6 +160,20 @@ describe('syncTrainingCalendar', () => {
     expect(calls.insert).toHaveLength(0);
     expect(calls.markSynced).toHaveLength(0); // already linked, nothing to relink
     expect(summary).toMatchObject({ created: 0, updated: 1 });
+  });
+
+  // MZY-417: reconcile needs the event as Google returned it after every push,
+  // or a changed default slot reads as a hand edit.
+  it('snapshots the event Google returned after each insert and patch', async () => {
+    const { deps, calls } = makeDeps([
+      row({ id: 's-new', gcalEventId: null }),
+      row({ id: 's-old', gcalEventId: 'evt-old' }),
+    ]);
+    await syncTrainingCalendar({ fromISO: '2026-07-29' }, deps);
+    expect(calls.recordPushed).toEqual([
+      { id: 's-new', eventId: 'evt-1' },
+      { id: 's-old', eventId: 'evt-old' },
+    ]);
   });
 
   it('re-inserts when a linked event was deleted on the calendar side (404)', async () => {
@@ -287,6 +308,8 @@ describe('syncTrainingCalendar', () => {
           description: 'Lift — Legs',
           gcalEventId: 'evt-legs',
           gcalFuelingEventId: null,
+          gcalPushed: null,
+          outcome: null,
         },
       ],
     });

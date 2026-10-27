@@ -1,6 +1,8 @@
 import { query } from './db';
 import type { PlannedSessionSpec } from '../lib/training/trainingProgram';
 import type { PlannedSessionForEvent } from './googleCalendar/eventMap';
+import type { PushedEvent } from '../lib/calendarReconcile';
+import type { EventResource } from './googleCalendar/types';
 import {
   SESSION_SELECT,
   SESSION_FROM,
@@ -55,6 +57,8 @@ export interface CalendarSyncRow extends PlannedSessionForEvent {
   gcalEventId: string | null;
   /** Linked "🧃 Fueling" companion event (Agon Meals calendar), or null. */
   gcalFuelingEventId: string | null;
+  /** The event as Google held it after Agon's last push (MZY-417), or null. */
+  gcalPushed: PushedEvent | null;
 }
 
 /** Lay a row's adjustment over its plan and shape it for the calendar sync. */
@@ -72,6 +76,7 @@ function toCalendarSyncRow(r: SessionRow): CalendarSyncRow {
     targetSessionType: resolved.targetSessionType,
     gcalEventId: r.gcal_event_id,
     gcalFuelingEventId: r.gcal_fueling_event_id,
+    gcalPushed: r.gcal_pushed,
     startTime: r.start_time,
     startTimePriority: r.start_time_priority,
     startTimeReason: r.start_time_reason,
@@ -113,6 +118,25 @@ export async function markSessionSynced(
         SET gcal_event_id = $2, status = 'synced'
       WHERE id = $1`,
     [id, gcalEventId],
+  );
+}
+
+/**
+ * Remember the event exactly as Google returned it after Agon pushed it, so
+ * reconcile can tell the athlete's edits from Agon's own writes (MZY-417).
+ */
+export async function recordPushedEvent(
+  id: string,
+  event: EventResource,
+): Promise<void> {
+  const pushed: PushedEvent = {
+    dateTime: event.start?.dateTime,
+    summary: event.summary,
+    description: event.description,
+  };
+  await query(
+    `UPDATE public.planned_sessions SET gcal_pushed = $2::jsonb WHERE id = $1`,
+    [id, JSON.stringify(pushed)],
   );
 }
 

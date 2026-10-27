@@ -268,3 +268,77 @@ describe('reconcileSession — bike and lift content edits (MZY-262)', () => {
     expect(a).toMatchObject({ description: null, reason: null });
   });
 });
+
+// MZY-417: an edit is a difference from what Agon last pushed, never from the
+// session's CURRENT defaults. 2026-10-25 changed the default slots and a dry run
+// read 76 untouched events as hand moves.
+describe('reconcileSession — pushed snapshot (MZY-417)', () => {
+  // The default slot moved to 19:00 after this event was pushed at 12:00.
+  const defaultChanged: SessionState = {
+    ...session,
+    startTime: '19:00',
+    description: 'Easy run',
+    pushed: {
+      dateTime: '2026-08-22T12:00:00+02:00',
+      summary: '🏃 Easy run — 17 km',
+      description: 'Block 1 · Week 4<br>Planned by Agon',
+    },
+  };
+  const untouched = {
+    dateTime: '2026-08-22T12:00:00+02:00',
+    summary: '🏃 Easy run — 17 km',
+    description: 'Block 1 · Week 4<br>Planned by Agon',
+  };
+
+  it('does not read a changed default slot as a hand move', () => {
+    expect(reconcileSession(defaultChanged, untouched).startTime).toBeNull();
+    expect(reconcileSession(defaultChanged, untouched).reason).toBeNull();
+  });
+
+  it('still reads the same event as a move when no snapshot is known', () => {
+    const legacy = { ...defaultChanged, pushed: null };
+    expect(reconcileSession(legacy, untouched).startTime).toBe('12:00');
+  });
+
+  it('detects a real move away from the pushed time', () => {
+    const moved = {
+      ...untouched,
+      dateTime: '2026-08-22T20:30:00+02:00',
+    };
+    expect(reconcileSession(defaultChanged, moved).startTime).toBe('20:30');
+  });
+
+  it('detects a hand-edited distance even when the time is untouched', () => {
+    const edited = { ...untouched, summary: '🏃 Easy run — 21,1 km' };
+    const action = reconcileSession(defaultChanged, edited);
+    expect(action.targetDistanceKm).toBe(21.1);
+    expect(action.startTime).toBeNull();
+  });
+
+  it('does not read stale pushed text as a hand-edited detail', () => {
+    const bike: SessionState = {
+      date: '2026-10-27',
+      startTime: '08:30',
+      sessionKind: 'bike',
+      targetDistanceKm: null,
+      targetSessionType: 'commute_to_work',
+      pushed: {
+        dateTime: '2026-10-27T17:00:00+01:00',
+        summary: '🚴 Commute ride — to work',
+        description:
+          'Easy Zone 2 spin — low-impact aerobic reserve<br>Planned by Agon',
+      },
+    };
+    const event = {
+      dateTime: '2026-10-27T17:00:00+01:00',
+      summary: '🚴 Commute ride — to work',
+      description:
+        'Easy Zone 2 spin — low-impact aerobic reserve<br>Planned by Agon',
+    };
+    expect(reconcileSession(bike, event)).toMatchObject({
+      startTime: null,
+      detail: null,
+      reason: null,
+    });
+  });
+});

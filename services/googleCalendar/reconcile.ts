@@ -94,7 +94,7 @@ async function fetchAllEvents(
   return all;
 }
 
-const defaultDeps: ReconcileDeps = {
+export const defaultReconcileDeps: ReconcileDeps = {
   getAccessToken: () => getValidAccessToken(),
   ensureTrainingCalendar: (token) => ensureCalendar(token, 'training'),
   getSessions: (fromISO, eventIds) => getLinkedSessions(fromISO, eventIds),
@@ -139,7 +139,7 @@ export interface ReconcileOptions {
 
 export async function reconcileFromCalendar(
   opts: ReconcileOptions,
-  deps: ReconcileDeps = defaultDeps,
+  deps: ReconcileDeps = defaultReconcileDeps,
 ): Promise<ReconcileSummary> {
   const token = await deps.getAccessToken();
   const calendarId = await deps.ensureTrainingCalendar(token);
@@ -185,6 +185,7 @@ export async function reconcileFromCalendar(
         description: s.description,
         targetSessionType: s.targetSessionType,
         detail: s.detail ?? null,
+        pushed: s.gcalPushed,
       },
       state,
     );

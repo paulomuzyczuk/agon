@@ -2,7 +2,11 @@ import { getValidAccessToken } from './oauth';
 import { ensureCalendar } from './calendars';
 import { insertEvent, patchEvent, GoogleCalendarNotFoundError } from './client';
 import { mapSessionToEvent, type EventRouteInfo } from './eventMap';
-import { markSessionSynced, type CalendarSyncRow } from '../plannedSessions';
+import {
+  markSessionSynced,
+  recordPushedEvent,
+  type CalendarSyncRow,
+} from '../plannedSessions';
 
 // Upsert ONE session's Training-calendar event (insert if unlinked, patch if
 // linked, re-insert on a 404). Used by the ad-hoc /route path to reflect a new
@@ -27,7 +31,13 @@ export async function upsertSessionEvent(
 
   if (session.gcalEventId) {
     try {
-      await patchEvent(token, calendarId, session.gcalEventId, event);
+      const pushed = await patchEvent(
+        token,
+        calendarId,
+        session.gcalEventId,
+        event,
+      );
+      await recordPushedEvent(session.id, pushed);
       return;
     } catch (err) {
       if (!(err instanceof GoogleCalendarNotFoundError)) throw err;
@@ -36,4 +46,5 @@ export async function upsertSessionEvent(
   }
   const res = await insertEvent(token, calendarId, event);
   await markSessionSynced(session.id, res.id);
+  await recordPushedEvent(session.id, res);
 }
