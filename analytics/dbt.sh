@@ -35,20 +35,33 @@ DBT_SCHEMA="${DBT_SCHEMA:-analytics}"
 DBT_SSLMODE="${DBT_SSLMODE:-disable}"
 
 # dbt runs INSIDE the container, where a loopback address means the container
-# itself — never the Postgres on the host. Anything that exports DBT_HOST=127.0.0.1
+# itself, never the Postgres on the host. Anything that exports DBT_HOST=127.0.0.1
 # (.env.local does, for host-side tools) would otherwise point dbt at nothing and
-# it would fail to connect with no obvious cause. Loopback always means "the host
-# machine" here, so translate it; a non-loopback host (a compose service name on
-# the tower, a remote warehouse) is passed through untouched.
-case "${DBT_HOST}" in
-  127.0.0.1|localhost|::1) DBT_HOST="host.docker.internal" ;;
-esac
+# it would fail to connect with no obvious cause. So by default loopback is
+# translated to "the host machine" (host.docker.internal); a non-loopback host (a
+# compose service name on the tower, a remote warehouse) is passed through
+# untouched.
+#
+# DBT_DOCKER_NETWORK=host is the Linux alternative: run the container on the
+# host's network so a database that only listens on loopback (the default
+# `127.0.0.1:5432` publish) is reachable as 127.0.0.1. Through the bridge such a
+# publish is refused ("Connection refused"). Native Docker engine on Linux only;
+# Docker Desktop (macOS, Windows) needs neither: leave it unset there.
+DBT_DOCKER_NETWORK="${DBT_DOCKER_NETWORK:-}"
+NET_ARGS=(--add-host=host.docker.internal:host-gateway)
+if [ "${DBT_DOCKER_NETWORK}" = "host" ]; then
+  NET_ARGS=(--network host)
+else
+  case "${DBT_HOST}" in
+    127.0.0.1|localhost|::1) DBT_HOST="host.docker.internal" ;;
+  esac
+fi
 
 # Directory of this script → the dbt project root (analytics/).
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 exec docker run --rm --platform linux/amd64 \
-  --add-host=host.docker.internal:host-gateway \
+  "${NET_ARGS[@]}" \
   -v "${PROJECT_DIR}:/usr/app" -w /usr/app \
   -e DBT_PROFILES_DIR=/usr/app \
   -e DBT_HOST="${DBT_HOST}" \

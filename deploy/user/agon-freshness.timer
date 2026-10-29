@@ -1,0 +1,14 @@
+# Nightly schedule for the user-level freshness check (agon-freshness.service in
+# this folder). See that unit for the one-time setup and how to install both files.
+
+[Unit]
+Description=Check that Agon's data pipelines are still feeding the database
+
+[Timer]
+# 08:00 local, after the night's syncs and the Monday reconcile.
+OnCalendar=*-*-* 08:00:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

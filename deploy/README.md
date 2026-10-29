@@ -12,7 +12,10 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   install; point `DATABASE_URL` at it).
 - **Data-freshness check** — `pnpm data:freshness` nightly under a `systemd` timer
   (`agon-freshness.service` + `.timer`). The ingestion dead-man's switch: alerts to
-  Telegram when a pipeline stops feeding the database.
+  Telegram when a pipeline stops feeding the database. A user-level pair with no
+  sudo is in `deploy/user/agon-freshness.*`; its header lists the one-time setup
+  (a password for the `dbt_writer` role, and `DBT_DOCKER_NETWORK=host` on Linux
+  so the dbt container can reach a loopback-only Postgres).
 - **Bike maintenance check** — `pnpm gear:check-maintenance` nightly under a
   `systemd` timer (`agon-gear-maintenance.service` + `.timer`). Alerts to Telegram
   when a bike crosses a maintenance threshold (e.g. chain lube every 300 km).
@@ -30,8 +33,8 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   `gh:wellness`, `strava:sync` and `strava:sync-rides` as independent steps: one
   failing source doesn't stop the others, the unit ends failed, and the owner gets
   one Telegram message per new failure. It deliberately leaves out plain
-  `gcal:sync` (overwrites hand edits in Calendar) and `data:freshness` (needs the
-  dbt container, MZY-27).
+  `gcal:sync`, which overwrites hand edits in Calendar. Pair it with the nightly
+  freshness check above, which also catches a sync that stopped running.
 - **n8n** — self-hosted automation (later).
 - Weather enrichment runs inside the sync scripts; nothing else needs its own timer.
 
