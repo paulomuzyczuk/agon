@@ -226,7 +226,8 @@ back.
    `lib/training/trainingProgram.ts`, changes to `docker-compose.yml`), commit
    or stash them first and resolve any conflict by hand; your `*.local.*`
    files and `.env.local` are ignored by git and not touched. See what changed
-   with `git log --oneline ORIG_HEAD..HEAD`, and check `.env.example` for new
+   with [`CHANGELOG.md`](../../CHANGELOG.md) (or `git log --oneline
+   ORIG_HEAD..HEAD`), and check `.env.example` for new
    settings (`git diff ORIG_HEAD..HEAD -- .env.example`).
 3. **Rebuild, migrate, then serve.** Migrate **before** the new code starts, so
    it never runs against the old schema:

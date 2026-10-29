@@ -12,10 +12,11 @@ The bot is Agon's low-friction capture path — voice notes, `/weight`,
    ```sh
    TELEGRAM_BOT_TOKEN=<token from BotFather>
    ```
-3. Find your own chat id (used only for the data-freshness alert, optional):
-   send the bot any message, then visit
-   `https://api.telegram.org/bot<token>/getUpdates` and read the `chat.id`
-   field. Set `TELEGRAM_OWNER_CHAT_ID` in `.env.local`.
+3. Find your own chat id (used for alerts and reminders, optional): start the
+   bot (next section), send it `/whoami`, and it replies with the id and the
+   exact line to add. Set `TELEGRAM_OWNER_CHAT_ID` in `.env.local` and restart
+   the `bot` service. (Calling `getUpdates` by hand only works while the bot is
+   stopped; a running bot consumes the updates first.)
 
 ## 2. Run it
 

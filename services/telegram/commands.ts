@@ -22,6 +22,7 @@ export type ParsedCommand =
   | { kind: 'week' }
   | { kind: 'sync' }
   | { kind: 'undo' }
+  | { kind: 'whoami' }
   | {
       kind: 'route';
       targetKm: number;
@@ -151,6 +152,8 @@ export function parseCommand(text: string): ParsedCommand {
       return { kind: 'sync' };
     case 'undo':
       return { kind: 'undo' };
+    case 'whoami':
+      return { kind: 'whoami' };
     case 'route':
       // Free-text after the command, preserving commas/case for place names.
       return parseRoute(text.trim().replace(/^\/\S+\s*/, ''));

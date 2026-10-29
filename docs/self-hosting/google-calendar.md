@@ -39,6 +39,47 @@ pnpm gcal:sync       # idempotent — inserts/patches events on gcal_event_id, n
 program change to push the delta. The weekly job below keeps the *past* in
 line with what you actually did.
 
+### Preview a sync: `--dry-run`
+
+```sh
+pnpm gcal:sync --dry-run              # prints what a real run would do; writes nothing
+pnpm gcal:sync --dry-run --reconcile  # ...and lists the hand edits it would read back
+```
+
+A real run patches every linked event each time (Google's `updated` stamp
+moves even when nothing changed), so the only way to check it used to be to
+write to your live calendar. The dry run makes no insert, patch or delete and
+leaves the link columns alone; it reports how many events it would create,
+update and remove. It does not generate route links (that calls the routing
+API and stores rows), and a patch that would 404 because you deleted the event
+counts as an update; only the real run finds that out. The very first run on a
+new account still creates the two empty calendars, since nothing can be
+previewed without them.
+
+### Moving a session
+
+Two supported ways, both end in a `gcal:sync`:
+
+- **In Google Calendar.** Drag the event, then run `pnpm gcal:sync --reconcile`.
+  Reconcile reads the move back (date and time) before pushing, so the sync
+  doesn't undo it. Always use `--reconcile` after editing events by hand.
+- **From the command line.**
+
+  ```sh
+  pnpm session:adjust 2026-10-29 run --date=2026-10-30 --at=18:30
+  pnpm gcal:sync --dry-run   # check, then
+  pnpm gcal:sync
+  ```
+
+  `--date` moves the day, `--at HH:MM` pins the start time (athlete-local),
+  `--km`, `--desc` and `--note` override the rest. Nothing edits the program
+  itself, so `pnpm seed:planned` can re-run later without losing the change.
+
+A session is addressed by its **program date** (where the plan put it), which
+stops matching once it has been moved, whether here or by dragging it in
+Calendar. Pass `--calendar` to address it by the date it sits on now:
+`pnpm session:adjust 2026-10-30 run --calendar --at=19:00`.
+
 ## Weekly reconciliation with recorded data (MZY-417)
 
 Recorded data is the source of truth for sessions that have already happened;

@@ -59,6 +59,8 @@ export interface CommandContext {
   syncRuns?: () => Promise<GoogleHealthSyncSummary>;
   /** Ad-hoc route generator for `/route`. Injectable so the unit lane can stub it. */
   addRoute?: (input: AddAdHocRouteInput) => Promise<AddAdHocRouteResult>;
+  /** The chat the message came from, for `/whoami`. Absent outside Telegram. */
+  chatId?: number;
 }
 
 function defaultContext(): CommandContext {
@@ -153,6 +155,11 @@ function formatRouteReply(
   return lines.join('\n');
 }
 
+/** A context for a message from `chatId`; `today` overrides the athlete-local date (tests). */
+export function contextFor(chatId: number, today?: string): CommandContext {
+  return { ...defaultContext(), ...(today ? { today } : {}), chatId };
+}
+
 export async function executeCommand(
   cmd: ParsedCommand,
   ctx: CommandContext = defaultContext(),
@@ -213,6 +220,13 @@ export async function executeCommand(
     }
     case 'week':
       return weekSummary(ctx.today);
+    case 'whoami':
+      // Lets the owner read their chat id from the running bot: a manual
+      // getUpdates call would fight the long-poll listener for the same updates
+      // (install audit F-19). The id is the caller's own, so replying is safe.
+      return ctx.chatId === undefined
+        ? '⚠️ No chat id on this message.'
+        : `🆔 This chat's id is ${ctx.chatId}.\nTo get Agon's reminders and alerts here, set TELEGRAM_OWNER_CHAT_ID=${ctx.chatId} in .env.local and restart the bot.`;
     case 'sync': {
       // Transport-thin: parse/validation is done; this just runs the incremental
       // Google Health pull and formats the result. A missing token / network

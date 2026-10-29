@@ -37,6 +37,10 @@ parser in `services/telegram/commands.ts` and execution in
 - **`/week`** — current block/week + this week's run & lift counts.
 - **`/sync`** — incremental Google Health run pull → "Pulled N new run(s)."
   Token/network errors degrade to a friendly reply.
+- **`/whoami`** — replies with this chat's id and the line to put in `.env.local`
+  (`TELEGRAM_OWNER_CHAT_ID=…`) so Agon can message you. Use it instead of
+  calling `getUpdates` by hand, which fights the running bot for the same
+  updates.
 - **`/undo`** — reverse the **last** logged entry (weight / bf / sweat /
   maintained / voice note). Never deletes a pre-existing run.
 
