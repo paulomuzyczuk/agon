@@ -2,7 +2,7 @@ import { logger } from '../logger';
 import type { LlmCompletionClient } from '../llm/completion';
 import type { TranscriptionClient } from '../llm/transcription';
 import { ingestVoiceAudio, type VoiceAudioResult } from '../voice';
-import { handleCommandText, type CommandContext } from './handlers';
+import { handleCommandText, contextFor } from './handlers';
 import type { TelegramFile, TelegramUpdate } from './api';
 
 // One handler for an incoming Telegram update, shared by the local poll listener
@@ -58,14 +58,10 @@ export async function dispatchTelegramUpdate(
   const message = update.message;
   if (!message) return;
   const chatId = message.chat.id;
-  const ctx: CommandContext | undefined = deps.today
-    ? { today: deps.today }
-    : undefined;
+  const ctx = contextFor(chatId, deps.today);
 
   if (message.text) {
-    const reply = ctx
-      ? await handleCommandText(message.text, ctx)
-      : await handleCommandText(message.text);
+    const reply = await handleCommandText(message.text, ctx);
     await deps.sendMessage(chatId, reply);
     return;
   }
