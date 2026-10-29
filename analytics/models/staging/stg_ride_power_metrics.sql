@@ -14,5 +14,6 @@ select
     avg_power_w as measured_avg_power_w,
     max_power_w as measured_max_power_w,
     kilojoules as measured_kilojoules,
+    zone_seconds,
     computed_at
 from {{ source('agon_raw', 'ride_power_metrics') }}

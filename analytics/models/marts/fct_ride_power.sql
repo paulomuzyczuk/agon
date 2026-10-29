@@ -46,6 +46,14 @@ select
     metrics.intensity_factor,
     metrics.tss,
     metrics.ftp_w,
+    -- seconds in Coggan power zones 1-7 (MZY-63); null without an FTP
+    metrics.zone_seconds[1] as zone1_s,
+    metrics.zone_seconds[2] as zone2_s,
+    metrics.zone_seconds[3] as zone3_s,
+    metrics.zone_seconds[4] as zone4_s,
+    metrics.zone_seconds[5] as zone5_s,
+    metrics.zone_seconds[6] as zone6_s,
+    metrics.zone_seconds[7] as zone7_s,
     source
 from rides
 left join metrics on metrics.ride_id = rides.id

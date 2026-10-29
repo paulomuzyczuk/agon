@@ -108,8 +108,9 @@ export async function upsertRidePowerMetrics(
     await client.query(
       `INSERT INTO public.ride_power_metrics
          (ride_id, stream_source, ftp_w, np_w, intensity_factor, tss,
-          duration_s, avg_power_w, max_power_w, kilojoules, computed_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
+          duration_s, avg_power_w, max_power_w, kilojoules, zone_seconds,
+          computed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
        ON CONFLICT (ride_id) DO UPDATE SET
          stream_source    = EXCLUDED.stream_source,
          ftp_w            = EXCLUDED.ftp_w,
@@ -120,6 +121,7 @@ export async function upsertRidePowerMetrics(
          avg_power_w      = EXCLUDED.avg_power_w,
          max_power_w      = EXCLUDED.max_power_w,
          kilojoules       = EXCLUDED.kilojoules,
+         zone_seconds     = EXCLUDED.zone_seconds,
          computed_at      = now()`,
       [
         row.rideId,
@@ -132,6 +134,7 @@ export async function upsertRidePowerMetrics(
         row.avgPowerW,
         row.maxPowerW,
         row.kilojoules,
+        row.zoneSeconds,
       ],
     );
     // Replace the curve wholesale: a shorter (trimmed) stream drops durations.

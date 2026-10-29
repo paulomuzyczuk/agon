@@ -47,7 +47,7 @@ async function metricsRow() {
   const { rows } = await query<Record<string, unknown>>(
     `SELECT m.stream_source, m.ftp_w, m.np_w,
             m.intensity_factor::float8 AS if, m.tss::float8 AS tss,
-            m.duration_s
+            m.duration_s, m.zone_seconds
        FROM public.ride_power_metrics m
        JOIN public.rides r ON r.id = m.ride_id
       WHERE r.external_id = $1`,
@@ -110,6 +110,8 @@ describe('recomputeRidePowerMetrics — device-only gate', () => {
       if: 1,
       tss: 100,
       duration_s: 3600,
+      // 250 W at FTP 250 is 100%: all of the hour in Zone 4 (threshold).
+      zone_seconds: [0, 0, 0, 3600, 0, 0, 0],
     });
     expect(await curveDurations()).toEqual([
       1, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600,
@@ -144,6 +146,27 @@ describe('recomputeRidePowerMetrics — device-only gate', () => {
       ftp_w: null,
       if: null,
       tss: null,
+      zone_seconds: null, // zones need an FTP, like IF/TSS
     });
+  });
+
+  it('refuses zone seconds without an FTP, or of the wrong length (the CHECKs)', async () => {
+    const { id } = await upsertRide(ride());
+    // IF/TSS must come with the FTP (an older CHECK), so give them when it is set.
+    const insert = (ftp: number | null, zones: number[]) =>
+      query(
+        `INSERT INTO public.ride_power_metrics
+           (ride_id, stream_source, ftp_w, intensity_factor, tss, np_w,
+            duration_s, avg_power_w, max_power_w, kilojoules, zone_seconds)
+         VALUES ($1, 'live_recording', $2, $3, $4, 200, 60, 200, 300, 12, $5)`,
+        [id, ftp, ftp ? 0.8 : null, ftp ? 1.5 : null, zones],
+      );
+    await expect(insert(null, [60, 0, 0, 0, 0, 0, 0])).rejects.toThrow(
+      /zones_need_ftp/,
+    );
+    await expect(insert(250, [60, 0, 0])).rejects.toThrow(/zone_seconds_shape/);
+    await expect(insert(250, [-1, 61, 0, 0, 0, 0, 0])).rejects.toThrow(
+      /zone_seconds_shape/,
+    );
   });
 });

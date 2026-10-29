@@ -22,7 +22,8 @@ Full build/verification narrative: tracked in Linear.
   `fct_ride_fueling` (MZY-64), `fct_ride_power` (MZY-267: summary watts/kJ
   + `power_source`/`is_measured`; filter `is_measured` before treating
   watts as data — power never feeds training load; MZY-269 adds Agon's
-  `np_w`/`intensity_factor`/`tss`/`ftp_w` from `stg_ride_power_metrics`,
+  `np_w`/`intensity_factor`/`tss`/`ftp_w` and `zone1_s..zone7_s` (MZY-63) from
+  `stg_ride_power_metrics`,
   measured streams only), `fct_ride_power_curve` (MZY-269: one row per
   ride × mean-max duration; season-best = group by `duration_s`
   max(`watts`) in Lightdash). Phase 4 correlation marts
