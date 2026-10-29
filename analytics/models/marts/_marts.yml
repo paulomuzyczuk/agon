@@ -287,6 +287,20 @@ models:
         description: Training Stress Score (1 h at FTP = 100). Per-ride only — never part of training load.
       - name: ftp_w
         description: FTP (W) in force on the ride date that IF/TSS were computed with (athlete profile ftpHistory).
+      - name: zone1_s
+        description: Seconds in power zone 1, active recovery (up to 55% of FTP). Coggan zones from ftp_w; coasting counts as zone 1. Null without a measured stream or an FTP; the seven sum to the active ride time.
+      - name: zone2_s
+        description: Seconds in power zone 2, endurance (56-75%). Coggan zones from ftp_w; coasting counts as zone 1. Null without a measured stream or an FTP; the seven sum to the active ride time.
+      - name: zone3_s
+        description: Seconds in power zone 3, tempo (76-90%). Coggan zones from ftp_w; coasting counts as zone 1. Null without a measured stream or an FTP; the seven sum to the active ride time.
+      - name: zone4_s
+        description: Seconds in power zone 4, threshold (91-105%). Coggan zones from ftp_w; coasting counts as zone 1. Null without a measured stream or an FTP; the seven sum to the active ride time.
+      - name: zone5_s
+        description: Seconds in power zone 5, VO2 max (106-120%). Coggan zones from ftp_w; coasting counts as zone 1. Null without a measured stream or an FTP; the seven sum to the active ride time.
+      - name: zone6_s
+        description: Seconds in power zone 6, anaerobic capacity (121-150%). Coggan zones from ftp_w; coasting counts as zone 1. Null without a measured stream or an FTP; the seven sum to the active ride time.
+      - name: zone7_s
+        description: Seconds in power zone 7, neuromuscular (over 150%). Coggan zones from ftp_w; coasting counts as zone 1. Null without a measured stream or an FTP; the seven sum to the active ride time.
 
   - name: fct_ride_power_curve
     description: >

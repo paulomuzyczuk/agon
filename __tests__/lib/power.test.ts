@@ -176,6 +176,21 @@ describe('computeRidePowerMetrics', () => {
     expect(m!.curve).toHaveLength(12); // 1 s … 60 min
   });
 
+  it('counts time in the seven power zones against the FTP (MZY-63)', () => {
+    // 150 W for 600 s at FTP 250 is 60% of FTP: Zone 2 (endurance).
+    const { timeS, watts } = stream(constant(150, 600));
+    const m = computeRidePowerMetrics(timeS, watts, 250);
+    expect(m!.zoneSeconds).toEqual([0, 600, 0, 0, 0, 0, 0]);
+    expect(m!.zoneSeconds!.reduce((a, b) => a + b, 0)).toBe(m!.durationS);
+  });
+
+  it('spreads an interval ride over several zones, summing to the ride', () => {
+    const { timeS, watts } = stream(INTERVALS);
+    const m = computeRidePowerMetrics(timeS, watts, 250);
+    expect(m!.zoneSeconds!.filter((s) => s > 0).length).toBeGreaterThan(1);
+    expect(m!.zoneSeconds!.reduce((a, b) => a + b, 0)).toBe(3600);
+  });
+
   it('keeps NP and the curve but nulls IF/TSS without an FTP', () => {
     const { timeS, watts } = stream(constant(200, 600));
     const m = computeRidePowerMetrics(timeS, watts, null);
@@ -184,6 +199,7 @@ describe('computeRidePowerMetrics', () => {
       intensityFactor: null,
       tss: null,
       ftpW: null,
+      zoneSeconds: null, // zones need an FTP, like IF/TSS
     });
     expect(m!.curve.length).toBeGreaterThan(0);
   });

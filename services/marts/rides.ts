@@ -1,4 +1,5 @@
 import { query } from '@/services/db';
+import { zoneBreakdown } from '@/lib/powerZones';
 import { streamSensors } from '@/services/marts/streamSensors';
 import { getOpenSuggestionFor } from '@/services/missedStops';
 import type { StopSuggestionView } from '@/lib/missedStopDetection';
@@ -253,10 +254,11 @@ async function measuredPower(id: string): Promise<RideMeasuredPower | null> {
     intensity_factor: number | null;
     tss: number | null;
     ftp_w: number | null;
+    zone_seconds: number[] | null;
     stream_source: string;
   }>(
     `select np_w, intensity_factor::float8 as intensity_factor,
-            tss::float8 as tss, ftp_w, stream_source
+            tss::float8 as tss, ftp_w, zone_seconds, stream_source
        from ride_power_metrics where ride_id = $1::uuid`,
     [id],
   );
@@ -272,6 +274,7 @@ async function measuredPower(id: string): Promise<RideMeasuredPower | null> {
     intensityFactor: m.intensity_factor,
     tss: m.tss,
     ftpW: m.ftp_w,
+    zones: zoneBreakdown(m.ftp_w, m.zone_seconds),
     streamSource: m.stream_source,
     curve: curve.map((c) => ({ durationS: c.duration_s, watts: c.watts })),
   };

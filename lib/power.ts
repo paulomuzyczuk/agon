@@ -17,6 +17,8 @@
 // (services/ridePowerMetrics.ts), these functions cannot tell the difference.
 // TSS never feeds training load (.claude/rules/premium-parity.md #8).
 
+import { timeInPowerZones } from './powerZones';
+
 /** Rolling-average window of Normalized Power (Coggan: 30 s). */
 export const NP_WINDOW_S = 30;
 
@@ -50,6 +52,11 @@ export interface RidePowerMetrics {
   tss: number | null;
   /** FTP (W) used for IF/TSS, null when none was set. */
   ftpW: number | null;
+  /**
+   * Seconds in each of the seven Coggan power zones (index 0 = Zone 1),
+   * from lib/powerZones.ts. Null without an FTP, like IF/TSS.
+   */
+  zoneSeconds: number[] | null;
   /** Active seconds in the resampled series (stops removed). */
   durationS: number;
   avgPowerW: number;
@@ -195,6 +202,7 @@ export function computeRidePowerMetrics(
     intensityFactor: intensity == null ? null : round(intensity, 3),
     tss: stress == null ? null : round(stress, 1),
     ftpW: intensity == null ? null : ftpW,
+    zoneSeconds: timeInPowerZones(series, intensity == null ? null : ftpW),
     durationS: series.length,
     avgPowerW: Math.round(sum / series.length),
     maxPowerW: Math.round(max),

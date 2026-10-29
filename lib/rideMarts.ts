@@ -13,6 +13,8 @@ import type { PowerSource } from './types';
 // ── Bike rides ───────────────────────────────────────────────────────────────
 
 /** One row in the recent-rides list. */
+import type { PowerZoneRow } from './powerZones';
+
 export interface RideListItem {
   id: string;
   date: string;
@@ -71,6 +73,8 @@ export interface RideMeasuredPower {
   streamSource: string;
   /** Mean-maximal power, ascending duration. */
   curve: Array<{ durationS: number; watts: number }>;
+  /** Time in the seven power zones (MZY-63); null without an FTP. */
+  zones: PowerZoneRow[] | null;
 }
 
 export interface RideDetail {

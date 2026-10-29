@@ -164,7 +164,13 @@ HR_rest)/(HR_max − HR_rest)` (anchors from `getAthleteProfile()`), TRIMP
    `pnpm power:backfill-metrics` (dry run; `--write`); a recompute with no
    device stream deletes the row. Surfaced in MCP `recent_rides` (NP/IF/
    TSS columns), ride detail (field + `PowerCurveChart`), `fct_ride_power`
-   and `fct_ride_power_curve`. **Decision: TSS never enters training
+   and `fct_ride_power_curve`. **Power zones** (MZY-63, `lib/powerZones.ts`):
+   the seven Coggan levels as a share of FTP (≤55, ≤75, ≤90, ≤105, ≤120,
+   ≤150, above), boundaries rounded to whole watts once and used both to show
+   and to count. Seconds per zone come from the same 1 Hz series as NP
+   (coasting = 0 W = Zone 1) and are stored as `ride_power_metrics.zone_seconds`
+   (int[7], only together with `ftp_w`, like IF/TSS); shown on ride detail
+   (`PowerZones`) and as `zone1_s..zone7_s` in `fct_ride_power`. **Decision: TSS never enters training
    load.** Load stays the Relative Effort (TRIMP) sum over runs and rides,
    the one unit every sport has. TSS is a separate per-ride metric, so no
    ride is counted twice. A possible later `'power'` method in

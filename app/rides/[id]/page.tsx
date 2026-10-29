@@ -8,6 +8,7 @@ import { formatPowerMetricsField, formatRidePowerField } from '@/lib/ridePower';
 import { RunRoute } from '@/components/RunRoute';
 import { RunStreamChart } from '@/components/RunStreamChart';
 import { PowerCurveChart } from '@/components/PowerCurveChart';
+import { PowerZones } from '@/components/PowerZones';
 import {
   ActivityCorrectionPanel,
   CorrectedBadge,
@@ -190,6 +191,19 @@ function RideDetailBody({
           <p className="muted small">No stream data for this ride.</p>
         )}
       </section>
+
+      {ride.measuredPower?.zones && (
+        <section className="card" style={{ marginTop: '1rem' }}>
+          <h2 style={{ margin: '0 0 0.5rem', fontSize: '0.95rem' }}>
+            Time in power zones
+          </h2>
+          <PowerZones zones={ride.measuredPower.zones} />
+          <p className="muted small" style={{ marginTop: '0.4rem' }}>
+            Coggan zones from your FTP of {ride.measuredPower.ftpW} W, measured
+            by a power meter. Coasting counts as zone 1.
+          </p>
+        </section>
+      )}
 
       {ride.measuredPower && (
         <section className="card" style={{ marginTop: '1rem' }}>
