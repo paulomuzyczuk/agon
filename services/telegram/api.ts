@@ -59,6 +59,8 @@ export const telegramUpdateSchema = z.object({
   message: z
     .object({
       chat: z.object({ id: z.number() }),
+      // Who sent it; absent for channel posts. Checked against the owner (access.ts).
+      from: z.object({ id: z.number() }).optional(),
       text: z.string().optional(),
       voice: z
         .object({

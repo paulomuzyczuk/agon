@@ -32,6 +32,7 @@ function deps(completion: FakeCompletionClient, transcript = ''): TelegramDeps {
     }),
     getCompletion: () => completion,
     getTranscription: () => new FakeTranscriptionClient(transcript),
+    ownerChatId: CHAT,
     today: DATE,
   };
 }

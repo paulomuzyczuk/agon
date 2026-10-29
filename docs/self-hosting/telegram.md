@@ -12,11 +12,23 @@ The bot is Agon's low-friction capture path — voice notes, `/weight`,
    ```sh
    TELEGRAM_BOT_TOKEN=<token from BotFather>
    ```
-3. Find your own chat id (used for alerts and reminders, optional): start the
-   bot (next section), send it `/whoami`, and it replies with the id and the
-   exact line to add. Set `TELEGRAM_OWNER_CHAT_ID` in `.env.local` and restart
-   the `bot` service. (Calling `getUpdates` by hand only works while the bot is
-   stopped; a running bot consumes the updates first.)
+3. Tell the bot who you are. A Telegram bot can be messaged by anyone who finds
+   its username, so Agon only answers **one chat**, set by
+   `TELEGRAM_OWNER_CHAT_ID`. Until it is set the bot answers `/whoami` and
+   nothing else. Start the bot (next section), send it `/whoami`, and it
+   replies with your id and the exact line to add. Put that in `.env.local`
+   and restart the `bot` service. (Calling `getUpdates` by hand only works
+   while the bot is stopped; a running bot consumes the updates first.)
+
+### Who can use the bot
+
+Only the owner chat. Any other chat is dropped without a reply, and a voice
+note from one is never downloaded or transcribed, so a stranger cannot spend
+your transcription or routing quota. The refusal is logged (chat id and kind of
+message, never the text) as `telegram message refused`; if you see your own id
+there, `TELEGRAM_OWNER_CHAT_ID` is wrong. The same gate protects the webhook
+path. If you run the webhook, also set `TELEGRAM_WEBHOOK_SECRET`: without it the
+endpoint accepts calls that did not come from Telegram.
 
 ## 2. Run it
 

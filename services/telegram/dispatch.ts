@@ -3,6 +3,7 @@ import type { LlmCompletionClient } from '../llm/completion';
 import type { TranscriptionClient } from '../llm/transcription';
 import { ingestVoiceAudio, type VoiceAudioResult } from '../voice';
 import { handleCommandText, contextFor } from './handlers';
+import { checkSender, logRefused } from './access';
 import type { TelegramFile, TelegramUpdate } from './api';
 
 // One handler for an incoming Telegram update, shared by the local poll listener
@@ -16,6 +17,12 @@ export interface TelegramDeps {
   downloadVoice: (fileId: string) => Promise<TelegramFile>;
   getCompletion: () => LlmCompletionClient;
   getTranscription: () => TranscriptionClient;
+  /**
+   * The only chat the bot answers (TELEGRAM_OWNER_CHAT_ID), or null when none is
+   * configured, in which case only /whoami works. Required, so a caller can't
+   * forget the gate.
+   */
+  ownerChatId: number | null;
   /** Override the capture date (athlete-local today by default). For tests. */
   today?: string;
 }
@@ -58,6 +65,13 @@ export async function dispatchTelegramUpdate(
   const message = update.message;
   if (!message) return;
   const chatId = message.chat.id;
+  // Before anything else: no transcription, download or command for a stranger.
+  const access = checkSender(message, deps.ownerChatId);
+  if (!access.allowed) {
+    logRefused(access, message);
+    if (access.reply) await deps.sendMessage(chatId, access.reply);
+    return;
+  }
   const ctx = contextFor(chatId, deps.today);
 
   if (message.text) {

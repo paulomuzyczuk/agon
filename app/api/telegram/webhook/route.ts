@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/services/logger';
 import {
   dispatchTelegramUpdate,
+  parseOwnerChatId,
   sendMessage,
   downloadFile,
   telegramUpdateSchema,
@@ -21,7 +22,9 @@ import { getTranscriptionClient } from '@/services/llm/transcription';
 // Security: Telegram signs webhook calls with a secret token in the
 // X-Telegram-Bot-Api-Secret-Token header (set when registering the webhook). We
 // reject anything that doesn't match TELEGRAM_WEBHOOK_SECRET so the endpoint
-// can't be driven by arbitrary callers. Always returns 200 on handled updates so
+// can't be driven by arbitrary callers (when the secret is unset the check is
+// skipped; dispatchTelegramUpdate still answers only TELEGRAM_OWNER_CHAT_ID,
+// MZY-418). Always returns 200 on handled updates so
 // Telegram doesn't retry; replies are sent via the Bot API.
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +50,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     downloadVoice: (fileId) => downloadFile(fileId, token),
     getCompletion: () => getCompletionClient(),
     getTranscription: () => getTranscriptionClient(),
+    ownerChatId: parseOwnerChatId(process.env.TELEGRAM_OWNER_CHAT_ID),
   };
 
   try {
