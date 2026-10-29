@@ -18,8 +18,10 @@ import {
 } from '../lib/syncAll';
 
 // Pull every live source in one go: Google Health runs, rides and wellness, then
-// Strava runs and rides. Meant for a timer (deploy/user/agon-sync.timer, once a
-// day); also fine by hand.
+// Strava runs and rides, then recompute what is derived from the new rows
+// (Relative Effort, best efforts, fueling balance, training load, race
+// predictions: the sync scripts do not). Meant for a timer
+// (deploy/user/agon-sync.timer, once a day); also fine by hand.
 //
 //   pnpm sync:all
 //

@@ -25,13 +25,42 @@ const bad = (name: string, tail = 'boom'): StepResult => ({
 });
 
 describe('syncSteps', () => {
-  it('runs Google Health then Strava, runs and rides', () => {
+  it('pulls Google Health then Strava, then recomputes the derived metrics', () => {
     expect(syncSteps('2026-10-29').map((s) => s.name)).toEqual([
       'gh:sync',
       'gh:wellness',
       'strava:sync',
       'strava:sync-rides',
+      're:backfill',
+      're:backfill-rides',
+      'be:backfill',
+      'fueling:backfill',
+      'tl:backfill',
+      'rp:backfill',
     ]);
+  });
+
+  it('writes the derived steps (the backfills are a dry run without --write)', () => {
+    const derived = syncSteps('2026-10-29').filter(
+      (s) => s.name.endsWith(':backfill') || s.name === 're:backfill-rides',
+    );
+    expect(derived).toHaveLength(6);
+    for (const s of derived) expect(s.args).toContain('--write');
+  });
+
+  it('computes training load after both Relative Effort scores, and predictions after best efforts', () => {
+    const names = syncSteps('2026-10-29').map((s) => s.name);
+    const at = (n: string) => names.indexOf(n);
+    expect(at('tl:backfill')).toBeGreaterThan(at('re:backfill'));
+    expect(at('tl:backfill')).toBeGreaterThan(at('re:backfill-rides'));
+    expect(at('rp:backfill')).toBeGreaterThan(at('be:backfill'));
+  });
+
+  it('derives after ingest, so new rows are included', () => {
+    const names = syncSteps('2026-10-29').map((s) => s.name);
+    expect(names.indexOf('re:backfill')).toBeGreaterThan(
+      names.indexOf('strava:sync-rides'),
+    );
   });
 
   it('gives the wellness pass a rolling 7-day window (it requires --since)', () => {
@@ -61,7 +90,10 @@ describe('runAll', () => {
         : { code: 0, tail: '' };
     });
     expect(seen).toEqual(steps.map((s) => s.name));
-    expect(results.map((r) => r.ok)).toEqual([false, true, true, true]);
+    expect(results.map((r) => r.ok)).toEqual([
+      false,
+      ...steps.slice(1).map(() => true),
+    ]);
     expect(results[0]).toMatchObject({ code: 1, tail: 'token expired' });
   });
 

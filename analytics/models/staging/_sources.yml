@@ -174,11 +174,12 @@ sources:
           DEVICE-measured ride_streams watts only (never estimated). ftp_w is
           the FTP used; null ftp_w means null IF/TSS. Grain: one row per ride
           with a power-meter stream. Never feeds training load.
-        # WARN only, and very generously: no power meter exists yet, so this
-        # table is legitimately empty / unchanging for long stretches.
-        loaded_at_field: updated_at
-        freshness:
-          warn_after: { count: 720, period: hour }
+        # NOT monitored for now: no power meter exists yet (MZY-63), so this
+        # table is empty and dbt reported it as stale every night. An empty
+        # table has no latest row, which reads as an absurd age. Turn the
+        # warn_after check back on (loaded_at_field: updated_at, warn 720 h)
+        # when the first ride with a power meter lands.
+        freshness: null
         columns:
           - name: ride_id
             tests: [not_null, unique]
