@@ -19,7 +19,16 @@ export interface StepResult {
 /** How far back the wellness pass re-reads each run; passes are idempotent. */
 export const WELLNESS_LOOKBACK_DAYS = 7;
 
-/** The steps, in order. Strava outranks Google Health, so order only matters for logs. */
+/**
+ * The steps, in order: pull every source, then recompute what is derived from
+ * the new rows. The sync scripts do not compute Relative Effort, best efforts,
+ * fueling balance, training load or race predictions; without these steps they
+ * stay as stale as the last manual backfill (found by the freshness check on the
+ * tower: nothing new for 31 days). Each backfill is an idempotent recompute, so
+ * running them every time is safe. Order matters for the derived ones: training
+ * load sums the two Relative Effort scores, race predictions read best efforts.
+ * Strava outranks Google Health, so order among the ingest steps only affects logs.
+ */
 export function syncSteps(todayISO: string): SyncStep[] {
   const since = new Date(
     Date.parse(`${todayISO}T00:00:00Z`) - WELLNESS_LOOKBACK_DAYS * 86_400_000,
@@ -31,6 +40,12 @@ export function syncSteps(todayISO: string): SyncStep[] {
     { name: 'gh:wellness', args: ['gh:wellness', `--since=${since}`] },
     { name: 'strava:sync', args: ['strava:sync'] },
     { name: 'strava:sync-rides', args: ['strava:sync-rides'] },
+    { name: 're:backfill', args: ['re:backfill', '--write'] },
+    { name: 're:backfill-rides', args: ['re:backfill-rides', '--write'] },
+    { name: 'be:backfill', args: ['be:backfill', '--write'] },
+    { name: 'fueling:backfill', args: ['fueling:backfill', '--write'] },
+    { name: 'tl:backfill', args: ['tl:backfill', '--write'] },
+    { name: 'rp:backfill', args: ['rp:backfill', '--write'] },
   ];
 }
 

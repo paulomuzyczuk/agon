@@ -22,7 +22,34 @@ with `pnpm migrate`; they are forward-only.
 
 **Telegram**
 
+- **Action needed:** the bot now answers only the chat in `TELEGRAM_OWNER_CHAT_ID`.
+  Before this, anyone who found the bot could run its commands or send it voice
+  notes. If you have not set the variable, the bot answers `/whoami` only: send
+  it, put the id in `.env.local`, restart `bot`. Other chats are ignored
+  silently. If you use the webhook, also set `TELEGRAM_WEBHOOK_SECRET`.
 - `/whoami` replies with the chat id to put in `TELEGRAM_OWNER_CHAT_ID`.
+
+**Rides**
+
+- Power zones: time in the seven Coggan zones per ride, from a power meter's
+  measured stream and your FTP. Shown on the ride page and in `fct_ride_power`.
+  Needs `pnpm migrate`; rides already scored get zones after
+  `pnpm power:backfill-metrics --write`. Rides without a power meter are unchanged.
+
+**Scheduled jobs**
+
+- `pnpm sync:all` pulls Google Health and Strava in one go and recomputes
+  Relative Effort, best efforts, fueling balance, training load and race
+  predictions afterwards: the sync scripts never did, so those stayed as old as
+  your last manual `pnpm re:backfill --write` and friends. User units
+  `deploy/user/agon-sync.*` run it once a day at 05:15. A failing source doesn't
+  stop the others; you get one Telegram message per new failure. Optional:
+  install the units as described in `deploy/README.md`.
+- `deploy/user/agon-freshness.*` is a user-level nightly `pnpm data:freshness`.
+  On Linux with the native Docker engine it needs a password for the
+  `dbt_writer` role and `DBT_DOCKER_NETWORK=host` in `.env.local` (the unit's
+  header lists the steps). `analytics/dbt.sh` now runs the container as your
+  user there.
 
 ## 2026-10-25
 

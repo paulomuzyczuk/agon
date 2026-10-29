@@ -1,6 +1,7 @@
 # Pull every live source as a USER unit (MZY-420): no sudo, no dedicated `agon`
 # user. Runs `pnpm sync:all`: Google Health runs/rides and wellness, then Strava
-# runs and rides, as independent steps. One failing step doesn't stop the rest;
+# runs and rides, then the derived-metric backfills (Relative Effort, best
+# efforts, fueling balance, training load, race predictions), as independent steps. One failing step doesn't stop the rest;
 # the unit still ends failed, and the owner gets one Telegram message per new
 # failure (see scripts/sync-all.ts).
 #

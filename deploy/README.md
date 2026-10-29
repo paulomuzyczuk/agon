@@ -30,7 +30,9 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   `docs/self-hosting/google-calendar.md`.
 - **Sync from Google Health and Strava** — `pnpm sync:all` once a day, as the
   user-level pair `deploy/user/agon-sync.*` (MZY-420). Runs `gh:sync`,
-  `gh:wellness`, `strava:sync` and `strava:sync-rides` as independent steps: one
+  `gh:wellness`, `strava:sync` and `strava:sync-rides`, then recomputes the derived
+  metrics (`re:backfill`, `re:backfill-rides`, `be:backfill`, `fueling:backfill`,
+  `tl:backfill`, `rp:backfill`) as independent steps: one
   failing source doesn't stop the others, the unit ends failed, and the owner gets
   one Telegram message per new failure. It deliberately leaves out plain
   `gcal:sync`, which overwrites hand edits in Calendar. Pair it with the nightly
