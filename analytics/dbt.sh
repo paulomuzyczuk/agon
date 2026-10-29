@@ -26,7 +26,6 @@
 set -euo pipefail
 
 DBT_IMAGE="${DBT_IMAGE:-ghcr.io/dbt-labs/dbt-postgres:1.9.0}"
-DBT_HOST="${DBT_HOST:-host.docker.internal}"
 DBT_PORT="${DBT_PORT:-5432}"
 DBT_USER="${DBT_WRITER_USER:-dbt_writer}"
 DBT_PASSWORD="${DBT_WRITER_PASSWORD:-dbtlocal}"
@@ -51,10 +50,22 @@ DBT_DOCKER_NETWORK="${DBT_DOCKER_NETWORK:-}"
 NET_ARGS=(--add-host=host.docker.internal:host-gateway)
 if [ "${DBT_DOCKER_NETWORK}" = "host" ]; then
   NET_ARGS=(--network host)
+  DBT_HOST="${DBT_HOST:-127.0.0.1}"
 else
+  DBT_HOST="${DBT_HOST:-host.docker.internal}"
   case "${DBT_HOST}" in
     127.0.0.1|localhost|::1) DBT_HOST="host.docker.internal" ;;
   esac
+fi
+
+# On Linux (native engine) run the container as the calling user. The image runs
+# as root by default, which leaves analytics/target and analytics/logs owned by
+# root: then the host-side freshness check cannot delete its own stale
+# sources.json (EACCES), and git clean / editors trip over the files. Docker
+# Desktop (macOS, Windows) maps ownership itself, so it is left alone there.
+USER_ARGS=()
+if [ "$(uname -s)" = "Linux" ]; then
+  USER_ARGS=(--user "$(id -u):$(id -g)" -e HOME=/tmp)
 fi
 
 # Directory of this script → the dbt project root (analytics/).
@@ -62,6 +73,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 exec docker run --rm --platform linux/amd64 \
   "${NET_ARGS[@]}" \
+  "${USER_ARGS[@]}" \
   -v "${PROJECT_DIR}:/usr/app" -w /usr/app \
   -e DBT_PROFILES_DIR=/usr/app \
   -e DBT_HOST="${DBT_HOST}" \
