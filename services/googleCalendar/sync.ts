@@ -30,6 +30,7 @@ import {
 import { getAttachedRoutes } from '../routeSuggestions';
 import { OrsRateLimitError } from '../routing';
 import { reconcileFromCalendar, type ReconcileSummary } from './reconcile';
+import { withDryRun } from './dryRun';
 import type { EventRouteInfo } from './eventMap';
 import type { CalendarEventInput, EventResource } from './types';
 import { getBaselineSweatRate } from '../sweat';
@@ -62,6 +63,8 @@ export interface CalendarSyncSummary {
   fuelingUpdated: number;
   /** Result of the pre-sync reconcile pass, or null when it wasn't run. */
   reconciled: ReconcileSummary | null;
+  /** True when nothing was written: the counts are what a real run would do. */
+  dryRun: boolean;
 }
 
 /** I/O seams so the sync is unit-testable without Google or a DB. */
@@ -98,8 +101,11 @@ export interface CalendarSyncDeps {
   remove: (token: string, calendarId: string, eventId: string) => Promise<void>;
   /** Forget the deleted event's id so the session no longer points at it. */
   unlink: (id: string) => Promise<void>;
-  /** Pull the athlete's own calendar edits back in before pushing (opt-in). */
-  reconcile: (fromISO: string) => Promise<ReconcileSummary>;
+  /**
+   * Pull the athlete's own calendar edits back in before pushing (opt-in).
+   * `dryRun` reports the edits without recording them.
+   */
+  reconcile: (fromISO: string, dryRun?: boolean) => Promise<ReconcileSummary>;
   /**
    * Athlete's current pace/sweat-rate for the long-run Vaseline/refueling
    * reminder — resolved ONCE per sync (athlete-wide, not session-specific),
@@ -148,7 +154,8 @@ const defaultDeps: CalendarSyncDeps = {
   // Resolves its own token and calendar rather than taking ours: the two passes
   // stay independently runnable (`pnpm gcal:reconcile`), and the extra call is a
   // cached-token no-op next to the event round-trips either way.
-  reconcile: (fromISO) => reconcileFromCalendar({ fromISO }),
+  reconcile: (fromISO, dryRun) =>
+    reconcileFromCalendar({ fromISO, ...(dryRun ? { dryRun } : {}) }),
   remove: (token, calendarId, eventId) =>
     deleteEvent(token, calendarId, eventId),
   unlink: (id) => clearSessionEventLink(id),
@@ -195,12 +202,16 @@ export interface CalendarSyncOptions {
    * deleted one marks the session skipped.
    */
   reconcile?: boolean;
+  /** Count what would change without writing to Calendar or the database. */
+  dryRun?: boolean;
 }
 
 export async function syncTrainingCalendar(
   opts: CalendarSyncOptions = {},
-  deps: CalendarSyncDeps = defaultDeps,
+  realDeps: CalendarSyncDeps = defaultDeps,
 ): Promise<CalendarSyncSummary> {
+  const dryRun = opts.dryRun === true;
+  const deps = dryRun ? withDryRun(realDeps) : realDeps;
   const fromISO = opts.fromISO ?? defaultSyncFromISO();
   const timeZone = opts.timeZone ?? DEFAULT_TIME_ZONE;
 
@@ -217,7 +228,7 @@ export async function syncTrainingCalendar(
   // remembers to run two commands in the right order.
   const reconciled = opts.reconcile ? await deps.reconcile(fromISO) : null;
 
-  const withRoutes = opts.routes !== false;
+  const withRoutes = opts.routes !== false && !dryRun;
   // Read sessions AFTER reconciling, so a session just moved or skipped syncs
   // from its new state instead of being pushed back to where it was.
   const sessions = await deps.getSessions(fromISO);
@@ -352,6 +363,7 @@ export async function syncTrainingCalendar(
     fuelingCreated,
     fuelingUpdated,
     reconciled,
+    dryRun,
   };
   logger.info('training calendar synced', {
     job: 'google-calendar-sync',
@@ -369,8 +381,12 @@ export function describeCalendarSyncSummary(s: CalendarSyncSummary): string {
     s.fuelingCreated > 0 || s.fuelingUpdated > 0
       ? `, ${s.fuelingCreated} fueling created / ${s.fuelingUpdated} updated`
       : '';
-  const line = `Calendar synced — ${s.created} created, ${s.updated} updated${removed}${routes}${fueling} (${s.total} session(s)).`;
-  if (!s.reconciled) return line;
+  const verb = s.dryRun ? 'Calendar would sync' : 'Calendar synced';
+  const line = `${verb} — ${s.created} ${s.dryRun ? 'to create' : 'created'}, ${s.updated} ${s.dryRun ? 'to update' : 'updated'}${removed}${routes}${fueling} (${s.total} session(s)).`;
+  const tail = s.dryRun
+    ? '\n(dry run — nothing was written; routes not generated)'
+    : '';
+  if (!s.reconciled) return line + tail;
   const { moved, skipped } = s.reconciled;
-  return `Reconciled from Calendar — ${moved} moved, ${skipped} skipped.\n${line}`;
+  return `${s.dryRun ? 'Would reconcile' : 'Reconciled'} from Calendar — ${moved} moved, ${skipped} skipped.\n${line}${tail}`;
 }

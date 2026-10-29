@@ -14,6 +14,7 @@ import { logger } from '../services/logger';
 //   pnpm gcal:sync --from=2026-03-23   # sync from a specific date (e.g. whole program)
 //   pnpm gcal:sync --no-routes         # skip generating/attaching route links
 //   pnpm gcal:sync --reconcile         # read the athlete's calendar edits back FIRST
+//   pnpm gcal:sync --dry-run           # count what would change; writes nothing
 //
 // --reconcile runs `gcal:reconcile` before pushing, so an event moved or deleted
 // by hand updates Agon instead of being overwritten by it. Opt-in because it
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
   const fromISO = parseFrom();
   const routes = !process.argv.includes('--no-routes');
   const reconcile = process.argv.includes('--reconcile');
+  const dryRun = process.argv.includes('--dry-run');
   // Generating a diverse pool + place descriptions per run makes many ORS calls;
   // pace them under the free-tier ~40/min limit (unless the user set their own).
   if (routes && !process.env.ORS_MIN_INTERVAL_MS) {
@@ -45,6 +47,7 @@ async function main(): Promise<void> {
     ...(fromISO ? { fromISO } : {}),
     routes,
     reconcile,
+    dryRun,
   });
   logger.info('gcal:sync complete', {
     job: 'google-calendar-sync',

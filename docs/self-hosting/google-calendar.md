@@ -39,6 +39,23 @@ pnpm gcal:sync       # idempotent — inserts/patches events on gcal_event_id, n
 program change to push the delta. The weekly job below keeps the *past* in
 line with what you actually did.
 
+### Preview a sync: `--dry-run`
+
+```sh
+pnpm gcal:sync --dry-run              # prints what a real run would do; writes nothing
+pnpm gcal:sync --dry-run --reconcile  # ...and lists the hand edits it would read back
+```
+
+A real run patches every linked event each time (Google's `updated` stamp
+moves even when nothing changed), so the only way to check it used to be to
+write to your live calendar. The dry run makes no insert, patch or delete and
+leaves the link columns alone; it reports how many events it would create,
+update and remove. It does not generate route links (that calls the routing
+API and stores rows), and a patch that would 404 because you deleted the event
+counts as an update; only the real run finds that out. The very first run on a
+new account still creates the two empty calendars, since nothing can be
+previewed without them.
+
 ## Weekly reconciliation with recorded data (MZY-417)
 
 Recorded data is the source of truth for sessions that have already happened;

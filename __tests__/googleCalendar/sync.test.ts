@@ -2,6 +2,7 @@ import {
   defaultSyncFromISO,
   SYNC_LOOKBACK_DAYS,
   syncTrainingCalendar,
+  describeCalendarSyncSummary,
   type CalendarSyncDeps,
 } from '@/services/googleCalendar/sync';
 import { GoogleCalendarNotFoundError } from '@/services/googleCalendar/client';
@@ -483,5 +484,83 @@ describe('deleteEvent tolerance', () => {
     expect(defaultSyncFromISO(new Date('2026-10-05T08:00:00Z'))).toBe(
       '2026-10-02',
     );
+  });
+});
+
+describe('dry run (MZY-406)', () => {
+  const sessions = [
+    row({ id: 'new', date: '2026-07-29' }),
+    row({ id: 'linked', date: '2026-07-30', gcalEventId: 'evt-old' }),
+  ];
+
+  it('counts what would change but writes nothing anywhere', async () => {
+    const resolved: string[] = [];
+    const { deps, calls } = makeDeps(sessions, {
+      getSkipped: async () => [
+        {
+          id: 'gone',
+          date: '2026-07-31',
+          description: 'Easy run',
+          gcalEventId: 'evt-gone',
+          gcalFuelingEventId: null,
+        },
+      ],
+      resolveRoutes: async (s) => {
+        resolved.push(s.id);
+        return [];
+      },
+    });
+    const summary = await syncTrainingCalendar({ dryRun: true }, deps);
+
+    expect(summary).toMatchObject({
+      created: 1,
+      updated: 1,
+      removed: 1,
+      dryRun: true,
+    });
+    // Nothing reached Google, and no link / snapshot column was touched.
+    expect(calls.insert).toHaveLength(0);
+    expect(calls.patch).toHaveLength(0);
+    expect(calls.removed).toHaveLength(0);
+    expect(calls.markSynced).toHaveLength(0);
+    expect(calls.recordPushed).toHaveLength(0);
+    expect(calls.unlinked).toHaveLength(0);
+    // Route generation calls the routing API and writes rows: off in a dry run.
+    expect(resolved).toHaveLength(0);
+  });
+
+  it('asks reconcile for a dry run too, so hand edits are only reported', async () => {
+    const seen: (boolean | undefined)[] = [];
+    const { deps } = makeDeps(sessions, {
+      reconcile: async (_from, dryRun) => {
+        seen.push(dryRun);
+        return {
+          examined: 2,
+          moved: 0,
+          skipped: 0,
+          distanceChanged: 0,
+          contentChanged: 0,
+        };
+      },
+    });
+    await syncTrainingCalendar({ dryRun: true, reconcile: true }, deps);
+    expect(seen).toEqual([true]);
+  });
+
+  it('a normal run is not marked as a dry run and still writes', async () => {
+    const { deps, calls } = makeDeps(sessions);
+    const summary = await syncTrainingCalendar({}, deps);
+    expect(summary.dryRun).toBe(false);
+    expect(calls.insert).toHaveLength(1);
+    expect(calls.patch).toHaveLength(1);
+  });
+
+  it('says so in the one-line summary', async () => {
+    const { deps } = makeDeps(sessions);
+    const summary = await syncTrainingCalendar({ dryRun: true }, deps);
+    const text = describeCalendarSyncSummary(summary);
+    expect(text).toContain('would sync');
+    expect(text).toContain('1 to create, 1 to update');
+    expect(text).toContain('nothing was written');
   });
 });
