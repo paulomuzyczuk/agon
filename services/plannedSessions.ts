@@ -284,7 +284,7 @@ export async function clearSessionEventLink(id: string): Promise<void> {
 /** Look up a session by date + kind, for CLIs that address it the way a human would. */
 export async function findSessionByDateAndKind(
   dateISO: string,
-  sessionKind: 'run' | 'lift' | 'rest',
+  sessionKind: 'run' | 'lift' | 'bike' | 'rest',
 ): Promise<{ id: string; description: string; status: string } | null> {
   const { rows } = await query<{
     id: string;
@@ -305,6 +305,57 @@ export async function findSessionByDateAndKind(
         status: rows[0].status,
       }
     : null;
+}
+
+/**
+ * Like findSessionByDateAndKind, but by the date the session sits on NOW (its
+ * adjustment's date when it was moved, else the program date). A session dragged
+ * in Calendar keeps its program date in planned_sessions.date, so "today's run"
+ * by the calendar can be a row dated otherwise.
+ */
+export async function findSessionByCalendarDate(
+  dateISO: string,
+  sessionKind: 'run' | 'lift' | 'bike' | 'rest',
+): Promise<{ id: string; description: string; status: string } | null> {
+  const { rows } = await query<{
+    id: string;
+    description: string | null;
+    status: string;
+  }>(
+    `SELECT p.id, COALESCE(a.description, p.description) AS description, p.status
+       ${SESSION_FROM}
+      WHERE COALESCE(a.date, p.date) = $1 AND p.session_kind = $2
+      ORDER BY p.created_at
+      LIMIT 1`,
+    [dateISO, sessionKind],
+  );
+  return rows[0]
+    ? {
+        id: rows[0].id,
+        description: rows[0].description ?? '',
+        status: rows[0].status,
+      }
+    : null;
+}
+
+/**
+ * Pin a session's start time (HH:MM, athlete-local) as a 'strong' one, so the
+ * sync stops moving it back to the default slot. The one writer of start_time:
+ * reconcile (a move read back from Calendar) and `session:adjust --at` both use it.
+ */
+export async function setSessionStartTime(
+  id: string,
+  startTime: string,
+  reason: string,
+): Promise<void> {
+  await query(
+    `UPDATE public.planned_sessions
+        SET start_time = $2::time,
+            start_time_priority = 'strong',
+            start_time_reason = $3
+      WHERE id = $1`,
+    [id, startTime, reason],
+  );
 }
 
 /** One session by id, resolved against its adjustment. */

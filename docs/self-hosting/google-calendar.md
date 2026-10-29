@@ -56,6 +56,30 @@ counts as an update; only the real run finds that out. The very first run on a
 new account still creates the two empty calendars, since nothing can be
 previewed without them.
 
+### Moving a session
+
+Two supported ways, both end in a `gcal:sync`:
+
+- **In Google Calendar.** Drag the event, then run `pnpm gcal:sync --reconcile`.
+  Reconcile reads the move back (date and time) before pushing, so the sync
+  doesn't undo it. Always use `--reconcile` after editing events by hand.
+- **From the command line.**
+
+  ```sh
+  pnpm session:adjust 2026-10-29 run --date=2026-10-30 --at=18:30
+  pnpm gcal:sync --dry-run   # check, then
+  pnpm gcal:sync
+  ```
+
+  `--date` moves the day, `--at HH:MM` pins the start time (athlete-local),
+  `--km`, `--desc` and `--note` override the rest. Nothing edits the program
+  itself, so `pnpm seed:planned` can re-run later without losing the change.
+
+A session is addressed by its **program date** (where the plan put it), which
+stops matching once it has been moved, whether here or by dragging it in
+Calendar. Pass `--calendar` to address it by the date it sits on now:
+`pnpm session:adjust 2026-10-30 run --calendar --at=19:00`.
+
 ## Weekly reconciliation with recorded data (MZY-417)
 
 Recorded data is the source of truth for sessions that have already happened;

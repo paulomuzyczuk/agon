@@ -2,10 +2,10 @@ import { logger } from '../logger';
 import {
   getLinkedSessions,
   setSessionStatus,
+  setSessionStartTime,
   type CalendarSyncRow,
 } from '../plannedSessions';
 import { mergeCalendarAdjustment } from '../sessionAdjustments';
-import { query } from '../db';
 import { getValidAccessToken } from './oauth';
 import { ensureCalendar } from './calendars';
 import { listEvents } from './client';
@@ -108,16 +108,8 @@ export const defaultReconcileDeps: ReconcileDeps = {
   recordSkip: (sessionId) => setSessionStatus(sessionId, 'skipped'),
   // A calendar move is by definition a 'strong' one — the athlete physically put
   // the event there, so the sync must not drag it back to the default slot.
-  recordTime: async (sessionId, startTime) => {
-    await query(
-      `UPDATE public.planned_sessions
-          SET start_time = $2::time,
-              start_time_priority = 'strong',
-              start_time_reason = $3
-        WHERE id = $1`,
-      [sessionId, startTime, 'moved in Google Calendar'],
-    );
-  },
+  recordTime: (sessionId, startTime) =>
+    setSessionStartTime(sessionId, startTime, 'moved in Google Calendar'),
   recordDistance: async (sessionId, targetDistanceKm, note, editedAt) => {
     await mergeCalendarAdjustment(
       sessionId,
