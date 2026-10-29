@@ -39,7 +39,7 @@ describe('/whoami', () => {
     });
   });
 
-  it('dispatch passes the sender chat id through to the reply', async () => {
+  it('dispatch passes the sender chat id through to the reply (first run, no owner yet)', async () => {
     const sent: { chatId: number; text: string }[] = [];
     await dispatchTelegramUpdate(
       {
@@ -64,6 +64,7 @@ describe('/whoami', () => {
         getTranscription: () => {
           throw new Error('not used');
         },
+        ownerChatId: null,
         today: '2026-10-29',
       },
     );

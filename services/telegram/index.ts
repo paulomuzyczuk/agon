@@ -19,3 +19,4 @@ export {
   type TelegramUpdate,
   type TelegramFile,
 } from './api';
+export { checkSender, parseOwnerChatId, type Access } from './access';

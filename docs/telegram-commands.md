@@ -37,7 +37,7 @@ parser in `services/telegram/commands.ts` and execution in
 - **`/week`** — current block/week + this week's run & lift counts.
 - **`/sync`** — incremental Google Health run pull → "Pulled N new run(s)."
   Token/network errors degrade to a friendly reply.
-- **`/whoami`** — replies with this chat's id and the line to put in `.env.local`
+- **`/whoami`** — the one command that works before an owner is configured. Replies with this chat's id and the line to put in `.env.local`
   (`TELEGRAM_OWNER_CHAT_ID=…`) so Agon can message you. Use it instead of
   calling `getUpdates` by hand, which fights the running bot for the same
   updates.

@@ -7,6 +7,7 @@ import {
   sendMessage,
   downloadFile,
   dispatchTelegramUpdate,
+  parseOwnerChatId,
   type TelegramDeps,
 } from '../services/telegram';
 import { getCompletionClient } from '../services/llm/completion';
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
     downloadVoice: (fileId) => downloadFile(fileId, token),
     getCompletion: () => getCompletionClient(),
     getTranscription: () => getTranscriptionClient(),
+    ownerChatId: parseOwnerChatId(process.env.TELEGRAM_OWNER_CHAT_ID),
   };
 
   // offset = last handled update_id + 1; 0 means "give me everything pending".
