@@ -1,0 +1,43 @@
+# Nightly data freshness check as a USER unit (MZY-420): no sudo, no dedicated
+# `agon` user. Runs `pnpm data:freshness`, the ingestion dead-man's switch: it
+# messages the owner when a pipeline has stopped feeding the database, or when
+# the check itself can't run. Exits 1 in both cases, so the unit shows as failed.
+#
+# One-time setup the check needs on a Linux host with the native Docker engine
+# (see analytics/README.md):
+#   1. Give the dbt role a password and put it in .env.local. Do not reuse
+#      another password, and never commit it:
+#        docker exec -i agon-db-1 psql -U agon -d agon \
+#          -c "ALTER ROLE dbt_writer WITH LOGIN PASSWORD '<new password>'"
+#        DBT_WRITER_PASSWORD=<new password>      (in .env.local)
+#   2. Let the dbt container reach the loopback-only Postgres:
+#        DBT_DOCKER_NETWORK=host                 (in .env.local)
+#   3. Try it once by hand: pnpm data:freshness --no-telegram
+#
+# Install (as your normal user):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/user/agon-freshness.service deploy/user/agon-freshness.timer ~/.config/systemd/user/
+#   # Edit in the copied service file if they differ on your machine:
+#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
+#   #   PATH              must contain the directory of `pnpm` and `node`
+#   systemd-analyze --user verify ~/.config/systemd/user/agon-freshness.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now agon-freshness.timer
+#   systemctl --user start agon-freshness.service     # run once, now
+#   journalctl --user -u agon-freshness -n 40
+#
+# The script loads .env.local itself, so there is no EnvironmentFile.
+
+[Unit]
+Description=Agon data freshness check (ingestion dead-man's switch)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/agon
+# systemd does not use your login shell's PATH.
+Environment=PATH=%h/.local/share/pnpm:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# dbt runs in a container: pin the native engine, not Docker Desktop's.
+Environment=DOCKER_HOST=unix:///var/run/docker.sock
+Environment=DOCKER_CONTEXT=default
+ExecStart=/usr/bin/env pnpm data:freshness
+TimeoutStartSec=900

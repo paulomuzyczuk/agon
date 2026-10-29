@@ -38,6 +38,18 @@ One-time local setup (dbt_writer has no password by default — peer auth):
 docker compose --env-file .env.local exec db psql -U agon -d agon -c "ALTER ROLE dbt_writer LOGIN PASSWORD 'dbtlocal';"
 ```
 
+`dbtlocal` is for a throwaway dev database. On a machine you rely on, pick your
+own password, set the same value as `DBT_WRITER_PASSWORD` in `.env.local`, and
+never commit it.
+
+**Linux with the native Docker engine:** the database is published on
+`127.0.0.1:5432` only, and the bridge route the wrapper uses by default
+(`host.docker.internal`) is refused with "Connection refused". Set
+`DBT_DOCKER_NETWORK=host` in `.env.local` and the container shares the host's
+network instead, so `127.0.0.1` works. Leave it unset on Docker Desktop
+(macOS, Windows). `pnpm data:freshness` is the first thing that needs this
+on a tower.
+
 On the tower, use the compose `dbt` profile (env-driven, same image) instead:
 
 ```

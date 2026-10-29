@@ -12,7 +12,10 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   install; point `DATABASE_URL` at it).
 - **Data-freshness check** — `pnpm data:freshness` nightly under a `systemd` timer
   (`agon-freshness.service` + `.timer`). The ingestion dead-man's switch: alerts to
-  Telegram when a pipeline stops feeding the database.
+  Telegram when a pipeline stops feeding the database. A user-level pair with no
+  sudo is in `deploy/user/agon-freshness.*`; its header lists the one-time setup
+  (a password for the `dbt_writer` role, and `DBT_DOCKER_NETWORK=host` on Linux
+  so the dbt container can reach a loopback-only Postgres).
 - **Bike maintenance check** — `pnpm gear:check-maintenance` nightly under a
   `systemd` timer (`agon-gear-maintenance.service` + `.timer`). Alerts to Telegram
   when a bike crosses a maintenance threshold (e.g. chain lube every 300 km).
@@ -25,9 +28,15 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   user-level pair in `deploy/user/`). Marks last fortnight's sessions done /
   not done from the recorded data and pushes that to Google Calendar. See
   `docs/self-hosting/google-calendar.md`.
+- **Sync from Google Health and Strava** — `pnpm sync:all` once a day, as the
+  user-level pair `deploy/user/agon-sync.*` (MZY-420). Runs `gh:sync`,
+  `gh:wellness`, `strava:sync` and `strava:sync-rides` as independent steps: one
+  failing source doesn't stop the others, the unit ends failed, and the owner gets
+  one Telegram message per new failure. It deliberately leaves out plain
+  `gcal:sync`, which overwrites hand edits in Calendar. Pair it with the nightly
+  freshness check above, which also catches a sync that stopped running.
 - **n8n** — self-hosted automation (later).
-- Other scheduled jobs (`pnpm gcal:sync` for the future calendar, `pnpm gh:sync`, weather enrichment) via
-  `cron` or `systemd` timers (later).
+- Weather enrichment runs inside the sync scripts; nothing else needs its own timer.
 
 ## Why long-poll, not webhook
 
