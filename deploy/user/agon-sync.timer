@@ -1,14 +1,16 @@
-# Every 3 hours for the user-level sync (agon-sync.service in this folder).
+# Once a day for the user-level sync (agon-sync.service in this folder).
 #
 # See that unit for what it does and how to install both files.
 
 [Unit]
-Description=Sync Agon from Google Health and Strava every 3 hours
+Description=Sync Agon from Google Health and Strava once a day
 
 [Timer]
-# 00:15, 03:15, 06:15 ... local time. Google Health pages the whole history on
-# every run (MZY-405), so more often than this costs API quota for little.
-OnCalendar=*-*-* 00/3:15:00
+# 05:15 local: last night's runs and rides are in, and it is done before the
+# Monday 06:00 calendar reconcile. Google Health pages the whole history on every
+# run (MZY-405), so more often costs API quota for little; run `pnpm sync:all`
+# (or send /sync) when you want something sooner.
+OnCalendar=*-*-* 05:15:00
 RandomizedDelaySec=300
 # A tower that was off syncs as soon as it is back.
 Persistent=true

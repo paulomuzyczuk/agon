@@ -28,7 +28,7 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   user-level pair in `deploy/user/`). Marks last fortnight's sessions done /
   not done from the recorded data and pushes that to Google Calendar. See
   `docs/self-hosting/google-calendar.md`.
-- **Sync from Google Health and Strava** — `pnpm sync:all` every 3 hours, as the
+- **Sync from Google Health and Strava** — `pnpm sync:all` once a day, as the
   user-level pair `deploy/user/agon-sync.*` (MZY-420). Runs `gh:sync`,
   `gh:wellness`, `strava:sync` and `strava:sync-rides` as independent steps: one
   failing source doesn't stop the others, the unit ends failed, and the owner gets

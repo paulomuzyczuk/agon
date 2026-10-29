@@ -65,14 +65,18 @@ export interface AlertState {
   sentAt: number;
 }
 
-/** Re-alert about an unchanged failure at most this often. */
-export const ALERT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+/**
+ * Re-alert about an unchanged failure at most this often. Just under a day, so
+ * a daily timer (with a few minutes of jitter) still re-alerts each day while a
+ * timer that runs more often does not repeat itself.
+ */
+export const ALERT_COOLDOWN_MS = 20 * 60 * 60 * 1000;
 
 /**
  * Alert when something fails that was not already reported, or when the same
- * failure is still there after a day. A sync every 3 hours with an expired
- * token must be one message, not eight a day. All green clears the state, so the
- * next failure alerts immediately.
+ * failure is still there after the cooldown. An expired token must be one
+ * message a day, not one per run. All green clears the state, so the next
+ * failure alerts immediately.
  */
 export function decideAlert(
   results: StepResult[],
