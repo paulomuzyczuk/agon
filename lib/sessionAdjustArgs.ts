@@ -52,47 +52,63 @@ function nonNegative(raw: string, label: string): number {
   return n;
 }
 
-export function parseAdjustArgs(argv: string[]): AdjustArgs {
-  const [dateArg, kindArg] = argv.filter((a) => !a.startsWith('--'));
-  if (!dateArg || !kindArg) throw new Error(ADJUST_USAGE);
-  if (!(SESSION_KINDS as readonly string[]).includes(kindArg)) {
-    throw new Error(
-      `session kind must be one of ${SESSION_KINDS.join(', ')} (got '${kindArg}')`,
-    );
-  }
-  const date = flag(argv, 'date');
-  const at = flag(argv, 'at');
-  const km = flag(argv, 'km');
-  const hrCap = flag(argv, 'hr-cap');
-  const type = flag(argv, 'type');
-  const desc = flag(argv, 'desc');
-  const note = flag(argv, 'note');
+type PatchKey = keyof AdjustArgs['patch'];
 
+// One row per overlay flag: its name, the field it sets and how to read it.
+const PATCH_FLAGS: [string, PatchKey, (raw: string) => string | number][] = [
+  ['date', 'date', (v) => isoDate(v, '--date')],
+  ['desc', 'description', (v) => v],
+  ['km', 'targetDistanceKm', (v) => nonNegative(v, '--km')],
+  ['hr-cap', 'targetHrCap', (v) => nonNegative(v, '--hr-cap')],
+  ['type', 'targetSessionType', (v) => v],
+  ['note', 'note', (v) => v],
+];
+
+function buildPatch(argv: string[]): AdjustArgs['patch'] {
+  const patch: Record<string, string | number> = {};
+  for (const [name, key, read] of PATCH_FLAGS) {
+    const raw = flag(argv, name);
+    if (raw !== undefined) patch[key] = read(raw);
+  }
+  return patch;
+}
+
+function startTimeArg(argv: string[]): string | undefined {
+  const at = flag(argv, 'at');
   if (at !== undefined && !CLOCK.test(at)) {
     throw new Error(`--at must be a 24-hour time like 18:30 (got '${at}')`);
   }
-  const patch: AdjustArgs['patch'] = {
-    ...(date !== undefined ? { date: isoDate(date, '--date') } : {}),
-    ...(desc !== undefined ? { description: desc } : {}),
-    ...(km !== undefined ? { targetDistanceKm: nonNegative(km, '--km') } : {}),
-    ...(hrCap !== undefined
-      ? { targetHrCap: nonNegative(hrCap, '--hr-cap') }
-      : {}),
-    ...(type !== undefined ? { targetSessionType: type } : {}),
-    ...(note !== undefined ? { note } : {}),
-  };
+  return at;
+}
+
+function sessionKind(raw: string): SessionKindArg {
+  if (!(SESSION_KINDS as readonly string[]).includes(raw)) {
+    throw new Error(
+      `session kind must be one of ${SESSION_KINDS.join(', ')} (got '${raw}')`,
+    );
+  }
+  return raw as SessionKindArg;
+}
+
+export function parseAdjustArgs(argv: string[]): AdjustArgs {
+  const [dateArg, kindArg] = argv.filter((a) => !a.startsWith('--'));
+  if (!dateArg || !kindArg) throw new Error(ADJUST_USAGE);
+  const kind = sessionKind(kindArg);
+  const dateISO = isoDate(dateArg, 'the session date');
+  const startTime = startTimeArg(argv);
+  const patch = buildPatch(argv);
   const clear = argv.includes('--clear');
-  if (!clear && Object.keys(patch).length === 0 && at === undefined) {
+  if (!clear && Object.keys(patch).length === 0 && startTime === undefined) {
     throw new Error(
       'nothing to adjust — pass at least one override (--date, --at, --km, …) or --clear',
     );
   }
   return {
-    dateISO: isoDate(dateArg, 'the session date'),
-    kind: kindArg as SessionKindArg,
+    dateISO,
+    kind,
     clear,
     byCalendar: argv.includes('--calendar'),
     patch,
-    ...(at !== undefined ? { startTime: at } : {}),
+    ...(startTime !== undefined ? { startTime } : {}),
   };
 }

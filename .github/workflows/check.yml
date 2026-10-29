@@ -32,9 +32,9 @@ jobs:
       - run: pnpm check:examples
       - run: pnpm typecheck
       # Complexity over 10 is a warning. --max-warnings is the ratchet: 90 was the
-      # count on 2026-10-08 (89 on 2026-10-15), and it may only go down. Lower it
+      # count on 2026-10-08 (89 on 2026-10-15, 88 on 2026-10-29), and it may only go down. Lower it
       # when you fix one.
-      - run: pnpm lint --max-warnings 89
+      - run: pnpm lint --max-warnings 88
       - run: pnpm budget:files
       - run: pnpm test
       # Not yet: 107 files fail Prettier today. Add this step back in the same

@@ -373,20 +373,30 @@ export async function syncTrainingCalendar(
   return summary;
 }
 
+function summaryCounts(s: CalendarSyncSummary): string {
+  const [made, patched] = s.dryRun
+    ? ['to create', 'to update']
+    : ['created', 'updated'];
+  const parts = [`${s.created} ${made}`, `${s.updated} ${patched}`];
+  if (s.removed > 0) parts.push(`${s.removed} removed`);
+  if (s.routesAttached > 0) parts.push(`${s.routesAttached} route(s)`);
+  if (s.fuelingCreated > 0 || s.fuelingUpdated > 0) {
+    parts.push(
+      `${s.fuelingCreated} fueling created / ${s.fuelingUpdated} updated`,
+    );
+  }
+  return parts.join(', ');
+}
+
 /** One-line human summary for CLI / Telegram output. */
 export function describeCalendarSyncSummary(s: CalendarSyncSummary): string {
-  const routes = s.routesAttached > 0 ? `, ${s.routesAttached} route(s)` : '';
-  const removed = s.removed > 0 ? `, ${s.removed} removed` : '';
-  const fueling =
-    s.fuelingCreated > 0 || s.fuelingUpdated > 0
-      ? `, ${s.fuelingCreated} fueling created / ${s.fuelingUpdated} updated`
-      : '';
   const verb = s.dryRun ? 'Calendar would sync' : 'Calendar synced';
-  const line = `${verb} — ${s.created} ${s.dryRun ? 'to create' : 'created'}, ${s.updated} ${s.dryRun ? 'to update' : 'updated'}${removed}${routes}${fueling} (${s.total} session(s)).`;
+  const line = `${verb} — ${summaryCounts(s)} (${s.total} session(s)).`;
   const tail = s.dryRun
     ? '\n(dry run — nothing was written; routes not generated)'
     : '';
   if (!s.reconciled) return line + tail;
   const { moved, skipped } = s.reconciled;
-  return `${s.dryRun ? 'Would reconcile' : 'Reconciled'} from Calendar — ${moved} moved, ${skipped} skipped.\n${line}${tail}`;
+  const lead = s.dryRun ? 'Would reconcile' : 'Reconciled';
+  return `${lead} from Calendar — ${moved} moved, ${skipped} skipped.\n${line}${tail}`;
 }
