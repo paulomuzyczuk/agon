@@ -1,0 +1,35 @@
+# Pull every live source as a USER unit (MZY-420): no sudo, no dedicated `agon`
+# user. Runs `pnpm sync:all`: Google Health runs/rides and wellness, then Strava
+# runs and rides, as independent steps. One failing step doesn't stop the rest;
+# the unit still ends failed, and the owner gets one Telegram message per new
+# failure (see scripts/sync-all.ts).
+#
+# Deliberately NOT here: plain `gcal:sync` (it overwrites hand edits in Google
+# Calendar; the Monday reconcile job owns the calendar) and `data:freshness`
+# (needs the dbt container, see MZY-27).
+#
+# Install (as your normal user):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/user/agon-sync.service deploy/user/agon-sync.timer ~/.config/systemd/user/
+#   # Edit in the copied service file if they differ on your machine:
+#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
+#   #   PATH              must contain the directory of `pnpm` and `node`
+#   systemd-analyze --user verify ~/.config/systemd/user/agon-sync.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now agon-sync.timer
+#   systemctl --user start agon-sync.service     # run once, now
+#   journalctl --user -u agon-sync -n 40
+#   loginctl enable-linger "$USER"               # keep user timers running while logged out
+#
+# The script loads .env.local itself, so there is no EnvironmentFile.
+
+[Unit]
+Description=Agon sync (Google Health + Strava)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/agon
+# systemd does not use your login shell's PATH.
+Environment=PATH=%h/.local/share/pnpm:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env pnpm sync:all
+TimeoutStartSec=1800

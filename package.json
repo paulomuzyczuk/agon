@@ -80,6 +80,7 @@
     "fitbit:backfill": "tsx scripts/backfill-fitbit.ts",
     "gh:auth": "tsx scripts/google-health-auth.ts",
     "gh:sync": "tsx scripts/sync-google-health.ts",
+    "sync:all": "tsx scripts/sync-all.ts",
     "gh:wellness": "tsx scripts/backfill-google-health-wellness.ts",
     "import:run": "tsx scripts/import-run-file.ts",
     "import:labs": "tsx scripts/import-lab-results.ts",

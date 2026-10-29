@@ -25,9 +25,15 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
   user-level pair in `deploy/user/`). Marks last fortnight's sessions done /
   not done from the recorded data and pushes that to Google Calendar. See
   `docs/self-hosting/google-calendar.md`.
+- **Sync from Google Health and Strava** — `pnpm sync:all` every 3 hours, as the
+  user-level pair `deploy/user/agon-sync.*` (MZY-420). Runs `gh:sync`,
+  `gh:wellness`, `strava:sync` and `strava:sync-rides` as independent steps: one
+  failing source doesn't stop the others, the unit ends failed, and the owner gets
+  one Telegram message per new failure. It deliberately leaves out plain
+  `gcal:sync` (overwrites hand edits in Calendar) and `data:freshness` (needs the
+  dbt container, MZY-27).
 - **n8n** — self-hosted automation (later).
-- Other scheduled jobs (`pnpm gcal:sync` for the future calendar, `pnpm gh:sync`, weather enrichment) via
-  `cron` or `systemd` timers (later).
+- Weather enrichment runs inside the sync scripts; nothing else needs its own timer.
 
 ## Why long-poll, not webhook
 
