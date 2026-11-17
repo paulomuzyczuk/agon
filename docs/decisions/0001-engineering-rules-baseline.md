@@ -3,7 +3,7 @@
 - **Status:** proposed, 2026-10-08 (draft branch; accepted in hephaistos the
   same day)
 - **Issue:** MZY-6 (Linear, hephaistos project; covers both repos)
-- **Next review:** 2027-01-08 (MZY-299)
+- **Next review:** 2027-05-17 (reviewed 2026-11-17, MZY-299)
 
 ## Context
 
@@ -63,3 +63,13 @@ The same as hephaistos's decision 0001: Richards & Ford (fitness functions,
 architecture decisions), Ousterhout (consistency, deep modules), Thomas & Hunt
 (DRY, the starter kit, pragmatic process), Larson (policy and exceptions),
 Huyen (memory tiers), Shostack (the four questions).
+
+## Review 2026-11-17 (MZY-299)
+
+Reaffirmed. The lint ratchet is exact: `--max-warnings` is 88 and `pnpm lint`
+reports 88. The two file-size exemptions (555 and 515 lines) match their
+files, and no `Co-Authored-By` trailer appears in the 51 commits since
+adoption. The engineering rules were compared with hephaistos: they differ in
+stack lines and three sentences only, and `CLAUDE.base.md` is unchanged at
+v1.3. The full record, including the decision on a canonical framework file, is
+in hephaistos `docs/decisions/0001-engineering-rules-baseline.md`.
