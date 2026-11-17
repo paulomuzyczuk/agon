@@ -1,4 +1,5 @@
 import { createGpsTrack, MAX_ACCURACY_M } from '@/lib/gpsTrack';
+import { createSplitTracker, type SplitTracker } from '@/lib/liveSplits';
 import type { GpsSampleRecord } from '@/lib/liveRecordingDb';
 import {
   GpsPermissionError,
@@ -33,6 +34,10 @@ export type GpsState =
       distanceM: number;
       /** Current speed (m/s), null when unknown. */
       speedMps: number | null;
+      /** Epoch ms of the latest fix (the moment `distanceM` was measured). */
+      fixTMs: number;
+      /** Seconds since Start at which each whole km was completed. */
+      kmCrossingsS: readonly number[];
     }
   | { kind: 'error'; message: string; permissionDenied: boolean };
 
@@ -67,9 +72,13 @@ export function createGpsLink(deps: GpsLinkDeps): GpsLink {
   let recording: {
     id: string;
     track: ReturnType<typeof createGpsTrack>;
+    splits: SplitTracker;
   } | null = null;
   let distanceM = 0;
   let speedMps: number | null = null;
+  // When `distanceM` was measured: rejected fixes must not move it, or the
+  // live pace would drift while the distance stands still.
+  let distanceFixTMs = 0;
   // Bumped by dispose/stop so a watcher that resolves late is removed at once.
   let generation = 0;
 
@@ -80,6 +89,8 @@ export function createGpsLink(deps: GpsLinkDeps): GpsLink {
         accuracyM: fix.accuracyM,
         distanceM: 0,
         speedMps: fix.speedMps,
+        fixTMs: fix.tMs,
+        kmCrossingsS: [],
       });
       return;
     }
@@ -87,6 +98,8 @@ export function createGpsLink(deps: GpsLinkDeps): GpsLink {
     if (step.accepted) {
       distanceM = step.distanceM;
       speedMps = step.speedMps;
+      distanceFixTMs = fix.tMs;
+      recording.splits.add(fix.tMs, distanceM);
       deps
         .appendGpsSample({
           recordingId: recording.id,
@@ -108,6 +121,8 @@ export function createGpsLink(deps: GpsLinkDeps): GpsLink {
       accuracyM: fix.accuracyM,
       distanceM,
       speedMps: step.accepted ? speedMps : null,
+      fixTMs: distanceFixTMs,
+      kmCrossingsS: recording.splits.crossingsS(),
     });
   }
 
@@ -162,9 +177,14 @@ export function createGpsLink(deps: GpsLinkDeps): GpsLink {
 
     async startRecording(recordingId, startedAt) {
       if (!source.isAvailable()) return;
-      recording = { id: recordingId, track: createGpsTrack(startedAt) };
+      recording = {
+        id: recordingId,
+        track: createGpsTrack(startedAt),
+        splits: createSplitTracker(startedAt),
+      };
       distanceM = 0;
       speedMps = null;
+      distanceFixTMs = startedAt;
       recStop = await watch(true);
       await stopWarmUp();
     },

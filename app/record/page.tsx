@@ -28,6 +28,7 @@ import { isStale, sensorContactLabel, type HeartRateState } from './heartRate';
 import { createHeartRateLink, type HeartRateLink } from './heartRateLink';
 import { useGpsTrack } from './useGpsTrack';
 import { GpsCard } from './GpsCard';
+import { LiveSummary } from './LiveSummary';
 import { formatPace, paceSecPerKm } from '@/lib/gpsTrack';
 
 // Activity recording (CLAUDE.md "Live Run Recording"; MZY-168 for the cycling
@@ -128,10 +129,13 @@ export default function RecordPage() {
   }, [refreshUnflushed]);
 
   useEffect(() => {
-    if (heartRate.kind !== 'connected') return;
+    // UI clock only (staleness label, elapsed time); recording itself never
+    // depends on timers (screen-off pause, live-recording.md).
+    if (heartRate.kind !== 'connected' && recording.kind !== 'recording')
+      return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [heartRate.kind]);
+  }, [heartRate.kind, recording.kind]);
 
   const handlePair = () => hrLink().pair(); // synchronous: user gesture
   const handleDisconnect = () => hrLink().disconnect();
@@ -279,6 +283,15 @@ export default function RecordPage() {
           </>
         )}
       </div>
+
+      {recording.kind === 'recording' && (
+        <LiveSummary
+          activityType={activityType}
+          startedAt={recording.startedAt}
+          nowMs={nowTick}
+          gps={gps}
+        />
+      )}
 
       {heartRate.kind === 'unsupported' && (
         <p className="muted" style={{ marginTop: '1rem' }}>
