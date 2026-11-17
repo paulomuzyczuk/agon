@@ -34,6 +34,8 @@ WorkingDirectory=%h/agon
 Environment=PATH=%h/.local/share/pnpm:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 # The machine may suspend overnight, so the Persistent timer can fire on wake-up before the
 # network is back (every step then dies with "fetch failed"). Wait up to 3 min for it.
-ExecStartPre=/bin/sh -c 'for i in $(seq 1 36); do curl -fsS -m 5 -o /dev/null https://www.strava.com && exit 0; sleep 5; done; exit 1'
+# Probes the Google Health API host, the primary source. No -f: the bare host answers 404,
+# and any HTTP response proves the network is up; only DNS/connect/timeout failures retry.
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 36); do curl -sS -m 5 -o /dev/null https://health.googleapis.com && exit 0; sleep 5; done; exit 1'
 ExecStart=/usr/bin/env pnpm sync:all
 TimeoutStartSec=1800
