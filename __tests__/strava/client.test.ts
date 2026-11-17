@@ -45,7 +45,7 @@ describe('listActivitiesPage', () => {
     });
 
     expect(out).toHaveLength(1);
-    expect(out[0]!.id).toBe(1);
+    expect(out[0]!.id).toBe('1');
     const url = fetchMock.mock.calls[0]![0] as string;
     expect(url).toContain('/athlete/activities?');
     expect(url).toContain('page=2');

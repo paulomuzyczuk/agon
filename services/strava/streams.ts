@@ -49,7 +49,7 @@ const roundOrNull = (v: number | null): number | null =>
  */
 export async function fetchStravaRunStreams(
   accessToken: string,
-  activityId: number,
+  activityId: string,
 ): Promise<RideStreamData | null> {
   const res = await fetch(
     `${API_BASE}/activities/${activityId}/streams?keys=${STREAM_KEYS}&key_by_type=true`,

@@ -14,7 +14,7 @@ function activity(
   overrides: Partial<StravaSummaryActivity> = {},
 ): StravaSummaryActivity {
   return {
-    id: 987654321,
+    id: '987654321',
     name: 'Morning Run',
     distance: 10000, // 10 km
     moving_time: 3000, // 50:00 → 300 s/km
@@ -74,7 +74,7 @@ describe('mapActivityToRun', () => {
       shoe_used: 'Endorphin Speed 4',
       start_lat: -23.55,
       start_lng: -46.63,
-      strava_activity_id: 987654321,
+      strava_activity_id: '987654321',
       external_id: '987654321', // idempotency key: activity id as text
       source: 'strava',
     });

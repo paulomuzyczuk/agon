@@ -94,7 +94,7 @@ async function loadStoredEfforts(): Promise<StravaBestEffort[]> {
        FROM public.strava_best_efforts`,
   );
   return rows.map((r) => ({
-    activityId: Number(r.strava_activity_id),
+    activityId: String(r.strava_activity_id),
     name: r.effort_name,
     distanceM: Number(r.distance_m),
     elapsedTimeS: r.elapsed_time_s,
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
 
   // 2) Skip activities already stored (unless --refresh) so re-runs are cheap.
   const stored = args.refresh
-    ? new Set<number>()
+    ? new Set<string>()
     : await getStoredBestEffortActivityIds();
   const toFetch = activities.filter((a) => !stored.has(a.id));
 

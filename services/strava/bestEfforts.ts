@@ -29,14 +29,14 @@ const bestEffortSchema = z.object({
 // The slice of the detailed activity we read. best_efforts is present only for
 // runs (and only once Strava has computed them); absent → treat as no efforts.
 const detailedActivitySchema = z.object({
-  id: z.number().int(),
+  id: z.number(), // unused: the caller already holds the exact id as a string
   start_date: z.string().optional(),
   best_efforts: z.array(bestEffortSchema).nullable().optional(),
 });
 
 /** One best effort, normalized for storage + the pure PR rollup. */
 export interface StravaBestEffort {
-  activityId: number;
+  activityId: string;
   name: string;
   distanceM: number;
   elapsedTimeS: number;
@@ -56,7 +56,7 @@ export interface StravaBestEffort {
  */
 export async function fetchActivityBestEfforts(
   accessToken: string,
-  activityId: number,
+  activityId: string,
 ): Promise<StravaBestEffort[]> {
   const res = await fetch(
     `${API_BASE}/activities/${activityId}?include_all_efforts=true`,
@@ -112,11 +112,11 @@ export function pickPrPerDistance(
 }
 
 /** Activity ids already stored — lets the pull skip them (resumable, 429-safe). */
-export async function getStoredBestEffortActivityIds(): Promise<Set<number>> {
+export async function getStoredBestEffortActivityIds(): Promise<Set<string>> {
   const { rows } = await query<{ strava_activity_id: string }>(
     `SELECT DISTINCT strava_activity_id FROM public.strava_best_efforts`,
   );
-  return new Set(rows.map((r) => Number(r.strava_activity_id)));
+  return new Set(rows.map((r) => String(r.strava_activity_id)));
 }
 
 /**

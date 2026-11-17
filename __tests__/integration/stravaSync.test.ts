@@ -13,9 +13,9 @@ import type { BackfillOptions } from '@/services/strava/ingest';
 // syncNewStravaRuns feeds that watermark to the (here-mocked) pull as `after`.
 // The Strava network call itself is injected — this lane never hits the API.
 
-const OLD_ID = 999_000_222_001;
-const NEW_ID = 999_000_222_002;
-const OTHER_SOURCE_ID = 999_000_222_003;
+const OLD_ID = '999000222001';
+const NEW_ID = '999000222002';
+const OTHER_SOURCE_ID = '999000222003';
 
 function sampleRun(over: Partial<RunRecord> = {}): RunRecord {
   const base: RunRecord = {

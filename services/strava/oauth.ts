@@ -13,7 +13,7 @@ const TOKEN_URL = 'https://www.strava.com/oauth/token';
 const EXPIRY_SKEW_S = 120;
 
 export interface StoredTokens {
-  athleteId: number;
+  athleteId: string;
   accessToken: string;
   refreshToken: string;
   expiresAt: number; // UNIX seconds
@@ -118,7 +118,7 @@ export async function getStoredTokens(): Promise<StoredTokens | null> {
   const row = rows[0];
   if (!row) return null;
   return {
-    athleteId: Number(row.athlete_id),
+    athleteId: String(row.athlete_id),
     accessToken: row.access_token,
     refreshToken: row.refresh_token,
     expiresAt: Math.floor(row.expires_at.getTime() / 1000),

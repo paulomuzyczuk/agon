@@ -36,7 +36,7 @@ export interface ExistingRunLite {
 
 /** The minimal shape of a Strava activity needed to match + score. */
 export interface StravaActivityLite {
-  id: number;
+  id: string;
   startMs: number;
   /** elapsed_time (the wider window) so a paused run still overlaps its record. */
   durationS: number;

@@ -147,7 +147,7 @@ export async function supersedeActivities(
  */
 export async function releaseStravaActivityId(
   losers: StoredActivity[],
-  stravaActivityId: number | null,
+  stravaActivityId: string | null,
 ): Promise<void> {
   if (stravaActivityId == null || losers.length === 0) return;
   await query(

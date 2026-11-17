@@ -11,7 +11,7 @@ import type { RunRecord } from '@/lib/types';
 // series comes back index-aligned, upsert is idempotent, and hasRunStreams
 // drives the resumable backfill.
 
-const RUN_ID = 999_000_111_444;
+const RUN_ID = '999000111444';
 
 function sampleRun(): RunRecord {
   return {
