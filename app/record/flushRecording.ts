@@ -26,6 +26,15 @@ import type { SampleDevice } from '@/lib/sourceDevices';
 // the wheel-revolution counter), and the distance is an optional override —
 // `previewDistance` shows the athlete what the server will derive.
 
+/**
+ * Shown when the save request got no response. The browser cannot tell why
+ * (VPN off, no signal, server down), so name the usual cause — the phone
+ * dropping off the tailnet — and reassure: the samples stay in IndexedDB.
+ */
+export const UNREACHABLE_MESSAGE =
+  "Can't reach Agon. Check that Tailscale (or your connection) is on, then " +
+  'tap Save again. Your recording is safe on this device.';
+
 /** Recordings written before MZY-168 have no activityType — they are runs. */
 const activityOf = (h: RecordingHeader): ActivityType =>
   h.activityType ?? 'run';
@@ -124,16 +133,25 @@ export async function flushRecording(
     };
   }
 
-  const res = await fetch(
-    activityType === 'run'
-      ? '/api/live-recording/finish'
-      : '/api/live-recording/finish-ride',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  );
+  const payload = JSON.stringify(body);
+  let res: Response;
+  try {
+    res = await fetch(
+      activityType === 'run'
+        ? '/api/live-recording/finish'
+        : '/api/live-recording/finish-ride',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      },
+    );
+  } catch (err) {
+    // fetch only rejects (a TypeError, "Failed to fetch") when no HTTP
+    // response came back at all: server unreachable, not a server error.
+    if (err instanceof TypeError) throw new Error(UNREACHABLE_MESSAGE);
+    throw err;
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error ?? `save failed (${res.status})`);
