@@ -21,6 +21,7 @@
     "check:examples": "tsx scripts/checkExampleFiles.ts",
     "android:sync": "cap sync android",
     "android:build": "tsx scripts/build-android.ts",
+    "icons:build": "tsx scripts/build-icons.ts",
     "bootstrap": "tsx scripts/bootstrap.ts",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",

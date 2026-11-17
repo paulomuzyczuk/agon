@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next';
 // PWA manifest (Next.js App Router convention: app/manifest.ts → /manifest.webmanifest).
 // Mobile-first, installable shell. Chrome only offers "Install app" with a
 // 192 px and a 512 px PNG icon, so these are rendered from the brand SVGs in
-// design_system/v.1/assets/app-icons/ (the maskable one without the rounded
+// docs/brand/app-icons/ by `pnpm icons:build` (the maskable one without the rounded
 // corners, because Android applies its own mask).
 export default function manifest(): MetadataRoute.Manifest {
   return {
