@@ -127,6 +127,35 @@ describe('gpsLink', () => {
     if (s.kind === 'ok') expect(s.distanceM).toBeCloseTo(9.4, 0);
   });
 
+  it('anchors the live-stats time to the last ACCEPTED fix', async () => {
+    const { fake, link, state } = setup();
+    await link.warmUp();
+    await link.startRecording('rec-1', T0);
+    fake.fix(fix(0, 0));
+    fake.fix(fix(1, 10));
+    fake.fix(fix(2, 20, 31.2)); // rejected: too inaccurate
+    const s = state();
+    expect(s).toMatchObject({ kind: 'weak', fixTMs: T0 + 1000 });
+    if (s.kind === 'weak') expect(s.distanceM).toBeCloseTo(10, 0);
+  });
+
+  it('reports each completed km with its time since Start', async () => {
+    const { fake, link, state } = setup();
+    await link.warmUp();
+    await link.startRecording('rec-1', T0);
+    // 3 m/s north, one fix every 50 s: 1 km is crossed ~333 s after the first
+    // fix (the distance counter starts at 0 there).
+    fake.fix(fix(0, 0));
+    for (let s = 50; s <= 400; s += 50) fake.fix(fix(s, s * 3));
+    const st = state();
+    expect(st.kind).toBe('ok');
+    if (st.kind === 'ok') {
+      expect(st.kmCrossingsS).toHaveLength(1);
+      expect(st.kmCrossingsS[0]).toBeGreaterThan(300);
+      expect(st.kmCrossingsS[0]).toBeLessThan(350);
+    }
+  });
+
   it('stops buffering after Stop', async () => {
     const { fake, link, samples } = setup();
     await link.startRecording('rec-1', T0);
