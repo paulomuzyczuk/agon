@@ -8,7 +8,7 @@ import type { RunRecord } from '@/lib/types';
 // (no network — updateRunWeather is the DB half; the Open-Meteo fetch is unit-
 // tested with a mock and exercised live via the enrich-weather script).
 
-const RUN_ID = 999_000_111_555;
+const RUN_ID = '999000111555';
 
 function run(): RunRecord {
   return {

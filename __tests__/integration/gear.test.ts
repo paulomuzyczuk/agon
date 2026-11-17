@@ -14,7 +14,7 @@ import type { RunRecord } from '@/lib/types';
 
 const STRAVA_GEAR_ID = 'g_test_999';
 const LOCAL_SHOE = 'Test Vaporfly 3';
-const RUN_ID = 999_000_111_333;
+const RUN_ID = '999000111333';
 
 async function cleanup(): Promise<void> {
   // run_gear rows cascade from runs; then remove the test gear.

@@ -11,7 +11,7 @@ import type { RunRecord } from '@/lib/types';
 // property that matters most — that re-running the backfill does NOT clobber
 // qualitative/weather enrichment written by later pipelines.
 
-const TEST_ACTIVITY_ID = 999_000_111_222; // distinctive; unlikely to collide
+const TEST_ACTIVITY_ID = '999000111222'; // distinctive; unlikely to collide
 
 function sampleRun(overrides: Partial<RunRecord> = {}): RunRecord {
   return {
@@ -34,7 +34,7 @@ function sampleRun(overrides: Partial<RunRecord> = {}): RunRecord {
     pain_onset_km: null,
     general_notes: null,
     strava_activity_id: TEST_ACTIVITY_ID,
-    external_id: String(TEST_ACTIVITY_ID),
+    external_id: TEST_ACTIVITY_ID,
     source: 'strava',
     origin: null,
     temp_c: null,

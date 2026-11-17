@@ -17,7 +17,7 @@ import type { StravaSummaryActivity } from './types';
 export type ActivityKind = 'run' | 'ride';
 
 export interface StravaActivityTimes {
-  stravaActivityId: number;
+  stravaActivityId: string;
   activityKind: ActivityKind;
   sportType: string | null;
   startedAt: string;
@@ -75,7 +75,7 @@ export function linkActivity(
   claimed: ReadonlySet<string>,
 ): ActivityLink | null {
   const direct = targets.find(
-    (t) => t.source === 'strava' && t.externalId === String(a.id),
+    (t) => t.source === 'strava' && t.externalId === a.id,
   );
   if (direct)
     return claimed.has(direct.id)

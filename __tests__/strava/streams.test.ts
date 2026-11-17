@@ -33,7 +33,7 @@ describe('fetchStravaRunStreams', () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const out = await fetchStravaRunStreams('tok', 555);
+    const out = await fetchStravaRunStreams('tok', '555');
     expect(out).not.toBeNull();
     expect(out!.timeS).toEqual([0, 1, 2]);
     expect(out!.heartrate).toEqual([120, 131, 140]); // rounded
@@ -60,26 +60,26 @@ describe('fetchStravaRunStreams', () => {
       latlng: { data: [[52.5, 13.4], null, [52.51, 13.41]] },
     }) as unknown as typeof fetch;
 
-    const out = await fetchStravaRunStreams('tok', 9);
+    const out = await fetchStravaRunStreams('tok', '9');
     expect(out!.lat).toEqual([52.5, null, 52.51]);
     expect(out!.lng).toEqual([13.4, null, 13.41]);
   });
 
   it('returns null when the activity has no streams (404)', async () => {
     global.fetch = mockFetch(404, {}) as unknown as typeof fetch;
-    await expect(fetchStravaRunStreams('tok', 1)).resolves.toBeNull();
+    await expect(fetchStravaRunStreams('tok', '1')).resolves.toBeNull();
   });
 
   it('returns null when there is no time axis to align on', async () => {
     global.fetch = mockFetch(200, {
       heartrate: { data: [120, 121] },
     }) as unknown as typeof fetch;
-    await expect(fetchStravaRunStreams('tok', 1)).resolves.toBeNull();
+    await expect(fetchStravaRunStreams('tok', '1')).resolves.toBeNull();
   });
 
   it('throws StravaRateLimitError on HTTP 429', async () => {
     global.fetch = mockFetch(429, {}) as unknown as typeof fetch;
-    await expect(fetchStravaRunStreams('tok', 1)).rejects.toBeInstanceOf(
+    await expect(fetchStravaRunStreams('tok', '1')).rejects.toBeInstanceOf(
       StravaRateLimitError,
     );
   });
@@ -93,7 +93,7 @@ describe('watts stream (MZY-267)', () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const out = await fetchStravaRunStreams('tok', 7);
+    const out = await fetchStravaRunStreams('tok', '7');
     expect(fetchMock.mock.calls[0]![0]).toContain(',watts&');
     expect(out!.watts).toEqual([150, null, 210]);
     expect(out!.wattsSource).toBeNull();
@@ -103,7 +103,7 @@ describe('watts stream (MZY-267)', () => {
     global.fetch = mockFetch(200, {
       time: { data: [0, 1] },
     }) as unknown as typeof fetch;
-    const out = await fetchStravaRunStreams('tok', 7);
+    const out = await fetchStravaRunStreams('tok', '7');
     expect(out!.watts).toBeNull();
   });
 });

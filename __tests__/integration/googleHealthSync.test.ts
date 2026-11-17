@@ -84,7 +84,7 @@ describe('upsertRun for google_health (identity + idempotency)', () => {
     // Same external_id string, different source → a distinct row (the whole point
     // of keying on the (source, external_id) pair).
     const strava = await upsertRun(
-      ghRun({ source: 'strava', strava_activity_id: 424242 }),
+      ghRun({ source: 'strava', strava_activity_id: '424242' }),
     );
     expect(strava.status).toBe('inserted');
     const { rows } = await query<{ count: string }>(

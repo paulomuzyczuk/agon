@@ -30,7 +30,7 @@ export interface RunRecord {
   pain_location: string | null;
   pain_onset_km: number | null;
   general_notes: string | null;
-  strava_activity_id: number | null;
+  strava_activity_id: string | null; // BIGINT as string (64-bit safe)
   // Source-agnostic idempotency key (with `source`): the provider's own id for
   // this activity — the Strava activity id as text, the Google Health dataPoint
   // id, or a deterministic file hash for imports. Null for manual runs.

@@ -9,7 +9,10 @@ import { StravaRateLimitError } from '@/services/strava/client';
 // activity's best_efforts array, and the pure PR-per-distance rollup. No network,
 // no DB (the fetch + pure paths never touch the pool).
 
-function mockFetch(status: number, body: unknown): jest.Mock<Promise<Response>> {
+function mockFetch(
+  status: number,
+  body: unknown,
+): jest.Mock<Promise<Response>> {
   return jest.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
@@ -40,10 +43,10 @@ describe('fetchActivityBestEfforts', () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    const out = await fetchActivityBestEfforts('tok', 42);
+    const out = await fetchActivityBestEfforts('tok', '42');
     expect(out).toHaveLength(2);
     expect(out[0]).toEqual({
-      activityId: 42,
+      activityId: '42',
       name: '5k',
       distanceM: 5000,
       elapsedTimeS: 1500,
@@ -73,23 +76,23 @@ describe('fetchActivityBestEfforts', () => {
         { name: '5k', distance: 5000, elapsed_time: 1500 },
       ],
     }) as unknown as typeof fetch;
-    const out = await fetchActivityBestEfforts('tok', 1);
+    const out = await fetchActivityBestEfforts('tok', '1');
     expect(out.map((e) => e.name)).toEqual(['5k']);
   });
 
   it('returns [] when the activity has no best_efforts (e.g. not a run)', async () => {
     global.fetch = mockFetch(200, { id: 7 }) as unknown as typeof fetch;
-    await expect(fetchActivityBestEfforts('tok', 7)).resolves.toEqual([]);
+    await expect(fetchActivityBestEfforts('tok', '7')).resolves.toEqual([]);
   });
 
   it('returns [] on 404', async () => {
     global.fetch = mockFetch(404, {}) as unknown as typeof fetch;
-    await expect(fetchActivityBestEfforts('tok', 7)).resolves.toEqual([]);
+    await expect(fetchActivityBestEfforts('tok', '7')).resolves.toEqual([]);
   });
 
   it('throws StravaRateLimitError on HTTP 429', async () => {
     global.fetch = mockFetch(429, {}) as unknown as typeof fetch;
-    await expect(fetchActivityBestEfforts('tok', 7)).rejects.toBeInstanceOf(
+    await expect(fetchActivityBestEfforts('tok', '7')).rejects.toBeInstanceOf(
       StravaRateLimitError,
     );
   });
@@ -100,7 +103,7 @@ describe('pickPrPerDistance', () => {
     name: string,
     distanceM: number,
     elapsedTimeS: number,
-    activityId = 1,
+    activityId = '1',
   ): StravaBestEffort => ({
     activityId,
     name,
@@ -114,14 +117,14 @@ describe('pickPrPerDistance', () => {
 
   it('keeps the fastest split per named distance', () => {
     const prs = pickPrPerDistance([
-      effort('5k', 5000, 1520, 1),
-      effort('5k', 5000, 1500, 2), // faster — wins
-      effort('10k', 10000, 3200, 3),
-      effort('5k', 5000, 1510, 4),
+      effort('5k', 5000, 1520, '1'),
+      effort('5k', 5000, 1500, '2'), // faster — wins
+      effort('10k', 10000, 3200, '3'),
+      effort('5k', 5000, 1510, '4'),
     ]);
     const byName = Object.fromEntries(prs.map((p) => [p.name, p]));
     expect(byName['5k']!.elapsedTimeS).toBe(1500);
-    expect(byName['5k']!.activityId).toBe(2);
+    expect(byName['5k']!.activityId).toBe('2');
     expect(byName['10k']!.elapsedTimeS).toBe(3200);
   });
 
@@ -132,7 +135,12 @@ describe('pickPrPerDistance', () => {
       effort('Half-Marathon', 21097, 7200),
       effort('5k', 5000, 1500),
     ]);
-    expect(prs.map((p) => p.name)).toEqual(['1k', '5k', '10k', 'Half-Marathon']);
+    expect(prs.map((p) => p.name)).toEqual([
+      '1k',
+      '5k',
+      '10k',
+      'Half-Marathon',
+    ]);
   });
 
   it('returns [] for no efforts', () => {

@@ -15,7 +15,7 @@ function activity(
   overrides: Partial<StravaSummaryActivity> = {},
 ): StravaSummaryActivity {
   return {
-    id: 1001,
+    id: '1001',
     distance: 10000,
     moving_time: 3000,
     elapsed_time: 3100,
@@ -45,7 +45,7 @@ describe('toActivityTimes', () => {
       rideId: 'ride-x',
     });
     expect(row).toEqual({
-      stravaActivityId: 1001,
+      stravaActivityId: '1001',
       activityKind: 'run',
       sportType: 'Run',
       startedAt: '2026-09-01T06:00:00.000Z',
