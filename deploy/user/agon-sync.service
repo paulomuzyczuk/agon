@@ -32,5 +32,8 @@ Type=oneshot
 WorkingDirectory=%h/agon
 # systemd does not use your login shell's PATH.
 Environment=PATH=%h/.local/share/pnpm:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# The machine may suspend overnight, so the Persistent timer can fire on wake-up before the
+# network is back (every step then dies with "fetch failed"). Wait up to 3 min for it.
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 36); do curl -fsS -m 5 -o /dev/null https://www.strava.com && exit 0; sleep 5; done; exit 1'
 ExecStart=/usr/bin/env pnpm sync:all
 TimeoutStartSec=1800
