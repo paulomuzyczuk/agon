@@ -1,4 +1,5 @@
 import {
+  parseTypedKm,
   gpsDistanceM,
   resolveDistanceKm,
   wheelDistanceM,
@@ -48,23 +49,61 @@ describe('resolveDistanceKm', () => {
     ).toEqual({ km: 5.2, source: 'manual' });
   });
 
-  it('then GPS, then the wheel', () => {
+  it('then GPS, then the wheel, both to 2 decimals (10 m)', () => {
     expect(resolveDistanceKm({ gpsM: 5012.37, wheelM: 4990 })).toEqual({
-      km: 5.012,
+      km: 5.01,
       source: 'gps',
     });
     expect(resolveDistanceKm({ gpsM: 0.3, wheelM: 4990.6 })).toEqual({
-      km: 4.991,
+      km: 4.99,
       source: 'wheel',
     });
   });
 
-  it('is null when nothing rounds above 0 km (NUMERIC(7,3) CHECK > 0)', () => {
-    expect(resolveDistanceKm({ gpsM: 0.4 })).toBeNull();
+  it('rounds half-up at the 5 m mark and never shows a third decimal', () => {
+    expect(resolveDistanceKm({ gpsM: 9978.9 })).toEqual({
+      km: 9.98, // the 10 km run whose GPS added up to 9.979 km
+      source: 'gps',
+    });
+    expect(resolveDistanceKm({ gpsM: 5005 })?.km).toBe(5.01);
+    expect(resolveDistanceKm({ gpsM: 5004.9 })?.km).toBe(5);
+  });
+
+  it('rounds a typed distance to 2 decimals too', () => {
+    expect(resolveDistanceKm({ manualKm: 10.004 })).toEqual({
+      km: 10,
+      source: 'manual',
+    });
+    expect(resolveDistanceKm({ manualKm: 4.216 })?.km).toBe(4.22);
+  });
+
+  it('is null when nothing rounds above 0 km (distance_km CHECK > 0)', () => {
+    expect(resolveDistanceKm({ gpsM: 4.9 })).toBeNull();
     expect(resolveDistanceKm({ manualKm: null })).toBeNull();
+    // a typed 0.004 km rounds to 0: it does not count as typed, and with no
+    // track behind it there is nothing to fall back to
+    expect(resolveDistanceKm({ manualKm: 0.004 })).toBeNull();
   });
 });
 
-it('gpsDistanceM is 0 for an empty track', () => {
-  expect(gpsDistanceM([])).toBe(0);
+describe('parseTypedKm (the Save form field)', () => {
+  it('empty means "derive it"', () => {
+    expect(parseTypedKm(undefined)).toBeUndefined();
+    expect(parseTypedKm('')).toBeUndefined();
+    expect(parseTypedKm('  ')).toBeUndefined();
+  });
+
+  it('keeps at most 2 decimals', () => {
+    expect(parseTypedKm('10')).toBe(10);
+    expect(parseTypedKm(' 9.98 ')).toBe(9.98);
+    expect(parseTypedKm('9.979')).toBe(9.98);
+    expect(parseTypedKm('4.2149')).toBe(4.21);
+  });
+
+  it('rejects anything under 0.01 km or not a number', () => {
+    expect(parseTypedKm('0')).toBe('invalid');
+    expect(parseTypedKm('0.004')).toBe('invalid');
+    expect(parseTypedKm('-3')).toBe('invalid');
+    expect(parseTypedKm('abc')).toBe('invalid');
+  });
 });
