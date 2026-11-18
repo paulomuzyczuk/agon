@@ -14,17 +14,16 @@
 #        DBT_DOCKER_NETWORK=host                 (in .env.local)
 #   3. Try it once by hand: pnpm data:freshness --no-telegram
 #
-# Install (as your normal user):
-#   mkdir -p ~/.config/systemd/user
-#   cp deploy/user/agon-freshness.service deploy/user/agon-freshness.timer ~/.config/systemd/user/
-#   # Edit in the copied service file if they differ on your machine:
-#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
-#   #   PATH              must contain the directory of `pnpm` and `node`
-#   systemd-analyze --user verify ~/.config/systemd/user/agon-freshness.service
-#   systemctl --user daemon-reload
+# Install (as your normal user):  deploy/user/install.sh agon-freshness
+#   It copies this unit and its timer to ~/.config/systemd/user/ and writes THIS
+#   machine's WorkingDirectory and PATH (where `pnpm` lives) into a drop-in,
+#   ~/.config/systemd/user/agon-freshness.service.d/local.conf, so copying the unit again
+#   never resets them. WorkingDirectory/PATH below are only template defaults;
+#   put anything else that is specific to your machine in that drop-in too.
 #   systemctl --user enable --now agon-freshness.timer
 #   systemctl --user start agon-freshness.service     # run once, now
 #   journalctl --user -u agon-freshness -n 40
+#   loginctl enable-linger "$USER"               # keep user timers running while logged out
 #
 # The script loads .env.local itself, so there is no EnvironmentFile.
 

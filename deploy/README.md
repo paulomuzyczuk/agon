@@ -6,6 +6,13 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
 
 ## What runs on the tower
 
+> **User-level units** (`deploy/user/agon-*`): install them with
+> `deploy/user/install.sh`, not by hand. The units are templates; the script
+> writes this machine's checkout path and `pnpm` directory into a drop-in
+> (`~/.config/systemd/user/<unit>.service.d/local.conf`) that re-installing never
+> overwrites. Copying a unit over an installed one used to reset those two
+> values and kill the job on its first step.
+
 - **Telegram bot** — the long-poll listener (`pnpm telegram:poll`) under `systemd`
   (`agon-bot.service`). This is what makes the bot "always running".
 - **Postgres** — the app database (local Docker `docker-compose.yml`, or a native

@@ -34,8 +34,11 @@ backup (MZY-113). This page makes sure that can't happen twice.
 ## Schedule it
 
 - **Linux, normal user (systemd, no sudo):** `deploy/user/agon-backup.service`
-  and `deploy/user/agon-backup.timer`, daily at 03:30. Install steps are in the
-  service file's header. Run `loginctl enable-linger "$USER"` once, or user
+  and `deploy/user/agon-backup.timer`, daily at 03:30. Install with
+  `deploy/user/install.sh agon-backup`: it copies the unit and writes your
+  machine's checkout path and `pnpm` directory into a drop-in
+  (`~/.config/systemd/user/agon-backup.service.d/local.conf`), so re-installing
+  never resets them. Run `loginctl enable-linger "$USER"` once, or user
   timers stop when you log out. Check the installed unit with
   `systemd-analyze --user verify`, then run it once by hand and read
   `journalctl --user -u agon-backup`.

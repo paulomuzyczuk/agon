@@ -9,14 +9,12 @@
 # Calendar; the Monday reconcile job owns the calendar) and `data:freshness`
 # (needs the dbt container, see MZY-27).
 #
-# Install (as your normal user):
-#   mkdir -p ~/.config/systemd/user
-#   cp deploy/user/agon-sync.service deploy/user/agon-sync.timer ~/.config/systemd/user/
-#   # Edit in the copied service file if they differ on your machine:
-#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
-#   #   PATH              must contain the directory of `pnpm` and `node`
-#   systemd-analyze --user verify ~/.config/systemd/user/agon-sync.service
-#   systemctl --user daemon-reload
+# Install (as your normal user):  deploy/user/install.sh agon-sync
+#   It copies this unit and its timer to ~/.config/systemd/user/ and writes THIS
+#   machine's WorkingDirectory and PATH (where `pnpm` lives) into a drop-in,
+#   ~/.config/systemd/user/agon-sync.service.d/local.conf, so copying the unit again
+#   never resets them. WorkingDirectory/PATH below are only template defaults;
+#   put anything else that is specific to your machine in that drop-in too.
 #   systemctl --user enable --now agon-sync.timer
 #   systemctl --user start agon-sync.service     # run once, now
 #   journalctl --user -u agon-sync -n 40
