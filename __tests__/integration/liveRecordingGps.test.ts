@@ -230,7 +230,8 @@ describe('finishLiveRecordingRide — wheel distance without GPS', () => {
       rideId,
     ]);
     // floor(299 × 3.4) = 1016 revs × 2.242 m
-    expect(Number(rows[0]!.distance_km)).toBeCloseTo(2.278, 3);
+    // 2.278 km of wheel revolutions, kept to 2 decimals (10 m).
+    expect(Number(rows[0]!.distance_km)).toBe(2.28);
     expect(rows[0]!.start_lat).toBeNull();
   });
 });

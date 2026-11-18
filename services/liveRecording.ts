@@ -1,6 +1,7 @@
 import type { RunRecord } from '../lib/types';
 import { computeBlockWeek } from '../lib/training/trainingBlocks';
 import { upsertRun } from './strava/ingest';
+import { findShoe, setRunShoe } from './gear';
 import { upsertRunStreams } from './runStreams';
 import {
   computeHrSummary,
@@ -48,6 +49,8 @@ export interface FinishLiveRecordingInput {
   gps?: GpsStreamSample[];
   /** Athlete-typed override; derived from the GPS track when absent. */
   distanceKm?: number;
+  /** The shoe picked in the Save form (a registered gear_id); none when absent. */
+  gearId?: string;
 }
 
 export interface FinishLiveRecordingResult {
@@ -63,6 +66,24 @@ export class MissingDistanceError extends Error {
     super('No distance: no GPS track to measure — enter the distance (km).');
     this.name = 'MissingDistanceError';
   }
+}
+
+/** The Save form named a shoe that isn't registered (or isn't a shoe). */
+export class UnknownShoeError extends Error {
+  constructor(gearId: string) {
+    super(`Unknown shoe "${gearId}": pick one from your registered gear.`);
+    this.name = 'UnknownShoeError';
+  }
+}
+
+/** The registered shoe the Save form named, null for none; throws for a stranger. */
+async function pickShoe(
+  gearId: string | undefined,
+): Promise<{ gearId: string; name: string } | null> {
+  if (!gearId) return null;
+  const shoe = await findShoe(gearId);
+  if (!shoe) throw new UnknownShoeError(gearId);
+  return shoe;
 }
 
 function round(n: number, decimals: number): number {
@@ -83,6 +104,7 @@ export async function finishLiveRecording(
     gpsM: gpsDistanceM(gps),
   });
   if (!distance) throw new MissingDistanceError();
+  const shoe = await pickShoe(input.gearId);
   const distanceKm = distance.km;
   const { avgHr, maxHr } = computeHrSummary(input.samples);
   const startedAtIso = new Date(input.startedAt).toISOString();
@@ -109,7 +131,7 @@ export async function finishLiveRecording(
       streamData.distanceM ?? [],
       streamData.altitudeM ?? [],
     ),
-    shoe_used: null,
+    shoe_used: shoe?.name ?? null,
     fueling: null,
     perceived_effort: null,
     pain_location: null,
@@ -131,6 +153,9 @@ export async function finishLiveRecording(
   // Health twin of this run that's already stored is merged into it and removed.
   const { supersede } = await classifyIncomingActivity('run', run);
   await supersedeActivities('run', runId, supersede);
+  // After the merge: the shoe the athlete just picked wins over one carried in
+  // from a twin.
+  if (shoe) await setRunShoe(runId, shoe.gearId);
 
   await upsertRunStreams(runId, 'live_recording', streamData);
 

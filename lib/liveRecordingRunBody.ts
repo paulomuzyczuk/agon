@@ -27,6 +27,8 @@ export const FinishRunBodySchema = z
     ),
     gps: gpsSamplesField,
     distanceKm: z.number().positive().optional(),
+    // The shoe picked in the Save form: a gear_id from GET /api/gear/shoes.
+    gearId: z.string().min(1).max(100).optional(),
   })
   .refine((b) => b.samples.length > 0 || b.gps.length > 0, {
     message: 'a run needs heart-rate samples or a GPS track',

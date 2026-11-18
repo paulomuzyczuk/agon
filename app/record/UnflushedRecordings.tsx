@@ -6,8 +6,12 @@ import {
   type ActivityType,
   type RecordingHeader,
 } from '@/lib/liveRecordingDb';
-import type { ResolvedDistance } from '@/lib/liveRecordingDistance';
+import {
+  parseTypedKm,
+  type ResolvedDistance,
+} from '@/lib/liveRecordingDistance';
 import { flushRecording, previewDistance } from './flushRecording';
+import { useRunShoes } from './useRunShoes';
 
 // The "unfinished recordings" list of app/record (CLAUDE.md "Live Run
 // Recording"): every recording still in IndexedDB that never reached
@@ -16,7 +20,9 @@ import { flushRecording, previewDistance } from './flushRecording';
 // (./flushRecording.ts); Discard drops them. Since MZY-282 the distance is
 // derived from the GPS track (or a ride's wheel sensor) and shown as the
 // input's placeholder; typing one overrides it, and it is only required when
-// there is nothing to derive it from.
+// there is nothing to derive it from. A run also asks which shoe it was in (a
+// dropdown of the registered shoes, the last-used one preselected, like Strava);
+// rides have no shoe.
 
 export function UnflushedRecordings({
   recordings,
@@ -36,6 +42,14 @@ export function UnflushedRecordings({
     Record<string, ResolvedDistance | null>
   >({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  // The athlete's pick per recording; absent = still on the default (the shoe
+  // used last), '' = deliberately no shoe.
+  const [shoeByRecording, setShoeByRecording] = useState<
+    Record<string, string>
+  >({});
+  const shoes = useRunShoes(recordings.some((h) => activityOf(h) === 'run'));
+  const defaultShoe =
+    shoes.kind === 'ready' ? (shoes.shoes[0]?.gearId ?? '') : '';
 
   useEffect(() => {
     let cancelled = false;
@@ -53,13 +67,10 @@ export function UnflushedRecordings({
   }, [recordings]);
 
   async function handleSave(header: RecordingHeader) {
-    const typed = distanceByRecording[header.id]?.trim();
-    const distanceKm = typed ? Number(typed) : undefined;
-    if (
-      distanceKm !== undefined &&
-      (!Number.isFinite(distanceKm) || distanceKm <= 0)
-    ) {
-      onFlushError('Enter a distance (km) greater than 0, or leave it empty.');
+    // Two decimals, as stored (10 m): what you type is what the run gets.
+    const distanceKm = parseTypedKm(distanceByRecording[header.id]);
+    if (distanceKm === 'invalid') {
+      onFlushError('Enter a distance of at least 0.01 km, or leave it empty.');
       return;
     }
     if (distanceKm === undefined && !derived[header.id]) {
@@ -70,7 +81,15 @@ export function UnflushedRecordings({
     }
     setBusyId(header.id);
     try {
-      const saved = await flushRecording(header, distanceKm);
+      const gearId =
+        activityOf(header) === 'run'
+          ? (shoeByRecording[header.id] ?? defaultShoe)
+          : '';
+      const saved = await flushRecording(
+        header,
+        distanceKm,
+        gearId || undefined,
+      );
       onFlushed(saved.activityType, saved.id);
     } catch (err) {
       onFlushError(
@@ -102,9 +121,21 @@ export function UnflushedRecordings({
       {recordings.map((header) => (
         <div key={header.id} className="rec-unflushed-row">
           <p className="hr-status">
-            {new Date(header.startedAt).toLocaleString()} ·{' '}
-            {header.activityType ?? 'run'} · {header.deviceName}
+            {new Date(header.startedAt).toLocaleString()} · {activityOf(header)}{' '}
+            · {header.deviceName}
           </p>
+          {activityOf(header) === 'run' && (
+            <ShoePicker
+              shoes={shoes}
+              value={shoeByRecording[header.id] ?? defaultShoe}
+              onChange={(gearId) =>
+                setShoeByRecording((prev) => ({
+                  ...prev,
+                  [header.id]: gearId,
+                }))
+              }
+            />
+          )}
           <div className="hr-actions">
             <input
               type="number"
@@ -146,4 +177,44 @@ export function UnflushedRecordings({
 function distancePlaceholder(d: ResolvedDistance | null | undefined): string {
   if (!d) return 'distance (km)';
   return `${d.km.toFixed(2)} km (${d.source === 'gps' ? 'GPS' : 'wheel'})`;
+}
+
+const activityOf = (h: RecordingHeader): ActivityType =>
+  h.activityType ?? 'run';
+
+/** "Shoes: [Brooks Ghost Max 2 ▾]" — registered shoes, last used first. */
+function ShoePicker({
+  shoes,
+  value,
+  onChange,
+}: {
+  shoes: ReturnType<typeof useRunShoes>;
+  value: string;
+  onChange: (gearId: string) => void;
+}) {
+  return (
+    <label className="rec-shoe">
+      <span className="rec-shoe-label">Shoes</span>
+      <select
+        className="rec-shoe-select"
+        value={value}
+        disabled={shoes.kind !== 'ready'}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">
+          {shoes.kind === 'loading'
+            ? 'loading…'
+            : shoes.kind === 'unavailable'
+              ? 'shoes unavailable — save without'
+              : 'No shoes'}
+        </option>
+        {shoes.kind === 'ready' &&
+          shoes.shoes.map((s) => (
+            <option key={s.gearId} value={s.gearId}>
+              {s.name}
+            </option>
+          ))}
+      </select>
+    </label>
+  );
 }

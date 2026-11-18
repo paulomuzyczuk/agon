@@ -1,5 +1,6 @@
 import { query } from './db';
 import { localGearId, type GearCategory } from '../lib/gear';
+import type { RunShoe } from '../lib/runShoes';
 
 // DB operations for the gear (shoe / HRM / watch / ...) catalog and the run_gear
 // join. Source-agnostic: Strava gear and manually-seeded gear both land here so
@@ -82,4 +83,57 @@ export async function resolveLocalGear(
     [gearId, name, category],
   );
   return gearId;
+}
+
+/**
+ * Active running shoes, most recently used first (so the first is the natural
+ * default, as in Strava). Retired shoes are left out of the picker.
+ */
+export async function listRunShoes(): Promise<RunShoe[]> {
+  const { rows } = await query<{
+    gear_id: string;
+    name: string;
+    last_used_at: Date | null;
+  }>(
+    `SELECT g.gear_id, g.name,
+            (SELECT max(r.started_at)
+               FROM public.run_gear rg JOIN public.runs r ON r.id = rg.run_id
+              WHERE rg.gear_id = g.gear_id) AS last_used_at
+       FROM public.gear g
+      WHERE g.category = 'shoe' AND NOT g.retired
+      ORDER BY last_used_at DESC NULLS LAST, g.name`,
+  );
+  return rows.map((r) => ({
+    gearId: r.gear_id,
+    name: r.name,
+    lastUsedAt: r.last_used_at ? r.last_used_at.toISOString() : null,
+  }));
+}
+
+/** A registered shoe by id, or null (unknown id, or not a shoe). */
+export async function findShoe(
+  gearId: string,
+): Promise<{ gearId: string; name: string } | null> {
+  const { rows } = await query<{ gear_id: string; name: string }>(
+    `SELECT gear_id, name FROM public.gear
+      WHERE gear_id = $1 AND category = 'shoe'`,
+    [gearId],
+  );
+  const row = rows[0];
+  return row ? { gearId: row.gear_id, name: row.name } : null;
+}
+
+/**
+ * Make `gearId` THE shoe of a run: drop any other shoe link first, so a retried
+ * save with a corrected choice (or a shoe merged in from a Strava twin) never
+ * leaves two shoes on one run. Other gear (the HRM) is untouched.
+ */
+export async function setRunShoe(runId: string, gearId: string): Promise<void> {
+  await query(
+    `DELETE FROM public.run_gear rg USING public.gear g
+      WHERE rg.run_id = $1 AND g.gear_id = rg.gear_id
+        AND g.category = 'shoe' AND rg.gear_id <> $2`,
+    [runId, gearId],
+  );
+  await linkRunGear(runId, gearId);
 }

@@ -57,9 +57,62 @@ export async function previewDistance(
   });
 }
 
+type Gps = Array<Record<string, unknown>>;
+
+async function runBody(
+  header: RecordingHeader,
+  base: Record<string, unknown>,
+  gps: Gps,
+  gearId: string | undefined,
+): Promise<unknown> {
+  const hr = await getHrSamples(header.id);
+  return {
+    ...base,
+    deviceName: header.deviceName,
+    samples: hr.map((s) => ({
+      tMs: s.tMs,
+      bpm: s.bpm,
+      sensorContact: s.sensorContact,
+      ...deviceOf(s),
+    })),
+    gps,
+    ...(gearId ? { gearId } : {}),
+  };
+}
+
+async function rideBody(
+  header: RecordingHeader,
+  base: Record<string, unknown>,
+  gps: Gps,
+): Promise<unknown> {
+  const [hr, speed, cadence, power] = await Promise.all([
+    getHrSamples(header.id),
+    getSpeedSamples(header.id),
+    getCadenceSamples(header.id),
+    getPowerSamples(header.id),
+  ]);
+  return {
+    ...base,
+    samples: {
+      hr: hr.map((s) => ({ tMs: s.tMs, bpm: s.bpm, ...deviceOf(s) })),
+      speed: speed.map((s) => ({
+        tMs: s.tMs,
+        speedKmh: s.speedKmh,
+        ...(s.wheelRevs != null ? { wheelRevs: s.wheelRevs } : {}),
+        ...deviceOf(s),
+      })),
+      cadence: cadence.map((s) => ({ tMs: s.tMs, rpm: s.rpm, ...deviceOf(s) })),
+      power: power.map((s) => ({ tMs: s.tMs, watts: s.watts, ...deviceOf(s) })),
+      gps,
+    },
+  };
+}
+
 export async function flushRecording(
   header: RecordingHeader,
   distanceKm: number | undefined,
+  /** The shoe picked in the Save form (runs only); undefined = none. */
+  gearId?: string,
 ): Promise<{ activityType: ActivityType; id: string }> {
   // Samples the native journal kept but IndexedDB lost (MZY-294).
   await replayJournals({ only: header.id });
@@ -87,51 +140,10 @@ export async function flushRecording(
     ...(distanceKm != null ? { distanceKm } : {}),
   };
 
-  let body: unknown;
-  if (activityType === 'run') {
-    const hr = await getHrSamples(finalized.id);
-    body = {
-      ...base,
-      deviceName: finalized.deviceName,
-      samples: hr.map((s) => ({
-        tMs: s.tMs,
-        bpm: s.bpm,
-        sensorContact: s.sensorContact,
-        ...deviceOf(s),
-      })),
-      gps,
-    };
-  } else {
-    const [hr, speed, cadence, power] = await Promise.all([
-      getHrSamples(finalized.id),
-      getSpeedSamples(finalized.id),
-      getCadenceSamples(finalized.id),
-      getPowerSamples(finalized.id),
-    ]);
-    body = {
-      ...base,
-      samples: {
-        hr: hr.map((s) => ({ tMs: s.tMs, bpm: s.bpm, ...deviceOf(s) })),
-        speed: speed.map((s) => ({
-          tMs: s.tMs,
-          speedKmh: s.speedKmh,
-          ...(s.wheelRevs != null ? { wheelRevs: s.wheelRevs } : {}),
-          ...deviceOf(s),
-        })),
-        cadence: cadence.map((s) => ({
-          tMs: s.tMs,
-          rpm: s.rpm,
-          ...deviceOf(s),
-        })),
-        power: power.map((s) => ({
-          tMs: s.tMs,
-          watts: s.watts,
-          ...deviceOf(s),
-        })),
-        gps,
-      },
-    };
-  }
+  const body =
+    activityType === 'run'
+      ? await runBody(finalized, base, gps, gearId)
+      : await rideBody(finalized, base, gps);
 
   const payload = JSON.stringify(body);
   let res: Response;

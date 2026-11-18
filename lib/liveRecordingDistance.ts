@@ -18,8 +18,14 @@ export interface ResolvedDistance {
 
 const UINT32 = 2 ** 32;
 
-/** runs/rides.distance_km is NUMERIC(7,3) CHECK > 0. */
-const toKm = (m: number) => Math.round(m) / 1000;
+/**
+ * Distances are kept to hundredths of a km (10 m), like Strava shows them: what
+ * the Save form previews is exactly what is stored. The column is
+ * NUMERIC(7,3) CHECK > 0, so 2 decimals always fit; a track under 5 m rounds to
+ * 0 and counts as "no distance".
+ */
+export const roundKm = (km: number) => Math.round(km * 100) / 100;
+const toKm = (m: number) => roundKm(m / 1000);
 
 /** Distance along an accepted GPS track (m), counted as live (lib/gpsTrack.ts). */
 export function gpsDistanceM(fixes: readonly TrackFix[]): number {
@@ -56,9 +62,8 @@ export function resolveDistanceKm(input: {
   gpsM?: number;
   wheelM?: number;
 }): ResolvedDistance | null {
-  if (input.manualKm != null && input.manualKm > 0) {
-    return { km: input.manualKm, source: 'manual' };
-  }
+  const typed = input.manualKm == null ? 0 : roundKm(input.manualKm);
+  if (typed > 0) return { km: typed, source: 'manual' };
   const candidates: Array<[DistanceSource, number | undefined]> = [
     ['gps', input.gpsM],
     ['wheel', input.wheelM],
@@ -67,4 +72,18 @@ export function resolveDistanceKm(input: {
     if (m != null && toKm(m) > 0) return { km: toKm(m), source };
   }
   return null;
+}
+
+/**
+ * The Save form's typed distance. `undefined` = left empty (derive it), a number
+ * = the value to send (rounded to 2 decimals, as stored), `'invalid'` = typed
+ * but not a distance of at least 0.01 km.
+ */
+export function parseTypedKm(
+  text: string | undefined,
+): number | undefined | 'invalid' {
+  const trimmed = text?.trim();
+  if (!trimmed) return undefined;
+  const km = roundKm(Number(trimmed));
+  return Number.isFinite(km) && km >= 0.01 ? km : 'invalid';
 }

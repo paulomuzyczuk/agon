@@ -6,20 +6,16 @@
 # has no EnvironmentFile (systemd would also hand `KEY=value # comment` lines to
 # the service with the comment as part of the value).
 #
-# Install (as your normal user):
-#   mkdir -p ~/.config/systemd/user
-#   cp deploy/user/agon-backup.service deploy/user/agon-backup.timer ~/.config/systemd/user/
-#   # Edit two things in the copied service file if they differ on your machine:
-#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
-#   #   PATH              must contain the directory of `pnpm` and `node`: run
-#   #                     `dirname "$(command -v pnpm)"` and put that first (nvm
-#   #                     installs are versioned, so it cannot be guessed here)
-#   systemd-analyze --user verify ~/.config/systemd/user/agon-backup.service
-#   systemctl --user daemon-reload
+# Install (as your normal user):  deploy/user/install.sh agon-backup
+#   It copies this unit and its timer to ~/.config/systemd/user/ and writes THIS
+#   machine's WorkingDirectory and PATH (where `pnpm` lives) into a drop-in,
+#   ~/.config/systemd/user/agon-backup.service.d/local.conf, so copying the unit again
+#   never resets them. WorkingDirectory/PATH below are only template defaults;
+#   put anything else that is specific to your machine in that drop-in too.
 #   systemctl --user enable --now agon-backup.timer
-#   systemctl --user start agon-backup.service      # run once, now
-#   journalctl --user -u agon-backup -n 20
-#   loginctl enable-linger "$USER"                  # keep user timers running while logged out
+#   systemctl --user start agon-backup.service     # run once, now
+#   journalctl --user -u agon-backup -n 40
+#   loginctl enable-linger "$USER"               # keep user timers running while logged out
 #
 # Put AGON_BACKUP_DIR in .env.local on a DIFFERENT disk from the Docker volume.
 

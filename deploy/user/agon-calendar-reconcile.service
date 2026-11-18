@@ -5,18 +5,16 @@
 # Runs `pnpm gcal:weekly-reconcile --write` (see docs/self-hosting/google-calendar.md).
 # The script loads .env.local itself, so there is no EnvironmentFile.
 #
-# Install (as your normal user):
-#   mkdir -p ~/.config/systemd/user
-#   cp deploy/user/agon-calendar-reconcile.service deploy/user/agon-calendar-reconcile.timer ~/.config/systemd/user/
-#   # Edit in the copied service file if they differ on your machine:
-#   #   WorkingDirectory  where you cloned the repo (default ~/agon)
-#   #   PATH              must contain the directory of `pnpm` and `node`
-#   systemd-analyze --user verify ~/.config/systemd/user/agon-calendar-reconcile.service
-#   systemctl --user daemon-reload
+# Install (as your normal user):  deploy/user/install.sh agon-calendar-reconcile
+#   It copies this unit and its timer to ~/.config/systemd/user/ and writes THIS
+#   machine's WorkingDirectory and PATH (where `pnpm` lives) into a drop-in,
+#   ~/.config/systemd/user/agon-calendar-reconcile.service.d/local.conf, so copying the unit again
+#   never resets them. WorkingDirectory/PATH below are only template defaults;
+#   put anything else that is specific to your machine in that drop-in too.
 #   systemctl --user enable --now agon-calendar-reconcile.timer
-#   systemctl --user start agon-calendar-reconcile.service   # run once, now
-#   journalctl --user -u agon-calendar-reconcile -n 20
-#   loginctl enable-linger "$USER"                           # keep user timers running while logged out
+#   systemctl --user start agon-calendar-reconcile.service     # run once, now
+#   journalctl --user -u agon-calendar-reconcile -n 40
+#   loginctl enable-linger "$USER"               # keep user timers running while logged out
 #
 # Run `pnpm gcal:sync` once after upgrading to MZY-417 so every event has a
 # snapshot to compare against.

@@ -71,4 +71,36 @@ describe('flushRecording', () => {
     });
     expect(markFlushed).toHaveBeenCalledWith('rec-1');
   });
+
+  describe('the shoe', () => {
+    const okFetch = () =>
+      jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ runId: 'run-9', rideId: 'ride-9' }),
+      });
+    const sent = () =>
+      JSON.parse(
+        (global.fetch as jest.Mock).mock.calls[0]![1].body as string,
+      ) as Record<string, unknown>;
+
+    it('is sent with a run when one was picked', async () => {
+      global.fetch = okFetch() as unknown as typeof fetch;
+      await flushRecording(header, 12, 'g31788187');
+      expect(sent().gearId).toBe('g31788187');
+    });
+
+    it('is left out when none was picked', async () => {
+      global.fetch = okFetch() as unknown as typeof fetch;
+      await flushRecording(header, 12, undefined);
+      expect(sent()).not.toHaveProperty('gearId');
+    });
+
+    it('is never sent with a ride', async () => {
+      global.fetch = okFetch() as unknown as typeof fetch;
+      const ride = { ...header, activityType: 'ride' } as RecordingHeader;
+      await flushRecording(ride, 12, 'g31788187');
+      expect(sent()).not.toHaveProperty('gearId');
+    });
+  });
 });
