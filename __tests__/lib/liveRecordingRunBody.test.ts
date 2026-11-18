@@ -77,4 +77,13 @@ describe('FinishRunBodySchema — GPS (MZY-282)', () => {
         .success,
     ).toBe(false);
   });
+
+  it('takes an optional shoe, and rejects an empty one', () => {
+    expect(FinishRunBodySchema.parse(body({})).gearId).toBeUndefined();
+    const withShoe = { ...body({}), gearId: 'g31788187' };
+    expect(FinishRunBodySchema.parse(withShoe).gearId).toBe('g31788187');
+    expect(
+      FinishRunBodySchema.safeParse({ ...body({}), gearId: '' }).success,
+    ).toBe(false);
+  });
 });

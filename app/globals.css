@@ -1049,3 +1049,29 @@ a {
   color: var(--muted);
   font-size: 0.7rem;
 }
+
+/* Save form of app/record: running-shoe dropdown (UnflushedRecordings.tsx). */
+.rec-shoe {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.4rem 0;
+}
+
+.rec-shoe-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rec-shoe-select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
