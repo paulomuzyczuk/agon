@@ -47,6 +47,15 @@ Data stays on-premises (GDPR by construction), zero monthly cost.
 - **n8n** — self-hosted automation (later).
 - Weather enrichment runs inside the sync scripts; nothing else needs its own timer.
 
+## Querying the database by hand
+
+Inside the `db` container the role and the database are both `agon` (not
+`postgres`), and the local socket needs no password:
+
+```bash
+docker compose --env-file .env.local exec db psql -U agon -d agon -c "select 1"
+```
+
 ## Why long-poll, not webhook
 
 The bot **dials out** to Telegram (`getUpdates`), so it needs **no public URL,
